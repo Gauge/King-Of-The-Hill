@@ -2,17 +2,20 @@
 using System;
 using VRage.Utils;
 
-namespace KingOfTheHill
+namespace KingOfTheHill.Coms
 {
     public class Client : ICommunicate
     {
         public event Action<Command> OnCommandRecived = delegate { };
-        public event Action<string> OnUserInput = delegate { }; 
+        /// <summary>
+        /// Terminal string, isServer
+        /// </summary>
+        public event Action<string> OnTerminalInput = delegate { };
 
         private ushort ModId;
         private string Keyword;
 
-        public bool IsServer => false;
+        public MultiplayerTypes MultiplayerType => Server.GetMultiplayerType();
 
         /// <summary>
         /// Handles communication with the server
@@ -30,7 +33,7 @@ namespace KingOfTheHill
 
         public void Close()
         {
-            Logger.Log(MyLogSeverity.Info, "Unregisering handlers before close");
+            Tools.Log(MyLogSeverity.Info, "Unregisering handlers before close");
             MyAPIGateway.Utilities.MessageEntered -= HandleChatInput;
             MyAPIGateway.Multiplayer.UnregisterMessageHandler(this.ModId, HandleMessage);
         }
@@ -41,7 +44,7 @@ namespace KingOfTheHill
             if (args[0].ToLower() != Keyword) return;
             sendToOthers = false;
 
-            OnUserInput.Invoke(messageText.Substring(Keyword.Length).Trim(' '));
+            OnTerminalInput.Invoke(messageText.Substring(Keyword.Length).Trim(' '));
         }
 
         private void HandleMessage(byte[] msg)
@@ -59,13 +62,19 @@ namespace KingOfTheHill
             }
             catch
             {
-                Logger.Log(MyLogSeverity.Warning, "Did not recieve a command packet. Mod Id may be compromise. Please send a list of all mods used with this on to me (the mod owner)");
+                Tools.Log(MyLogSeverity.Warning, "Did not recieve a command packet. Mod Id may be compromise. Please send a list of all mods used with this on to me (the mod owner)");
             }
         }
 
-        public void SendCommand(string message, ulong steamId = ulong.MinValue)
+        /// <summary>
+        /// One of two methods for sending server messages
+        /// </summary>
+        /// <param name="arguments">Command argument string</param>
+        /// <param name="message">Text for display purposes</param>
+        /// <param name="steamId">Player Identifier</param>
+        public void SendCommand(string arguments, string message = null, ulong steamId = ulong.MinValue)
         {
-            SendCommand(new Command { Message = message });
+            SendCommand(new Command {Arguments = arguments, Message = message }, steamId);
         }
 
         public void SendCommand(Command cmd, ulong steamId = ulong.MinValue)

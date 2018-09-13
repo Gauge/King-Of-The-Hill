@@ -1,6 +1,6 @@
 ﻿using ProtoBuf;
 
-namespace KingOfTheHill
+namespace KingOfTheHill.Descriptions
 {
     [ProtoContract]
     public class ScoreDescription
@@ -16,10 +16,5 @@ namespace KingOfTheHill
 
         [ProtoMember]
         public int Points { get; set; }
-
-        public override string ToString()
-        {
-            return $"(SCORE) [{FactionTag}] {FactionName}: {Points}";
-        }
     }
 }

@@ -89,22 +89,24 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Scripts\capture\Client.cs" />
-    <Compile Include="Scripts\capture\Core.cs" />
-    <Compile Include="Scripts\capture\Descriptions\Command.cs" />
-    <Compile Include="Scripts\capture\Descriptions\ScoreDescription.cs" />
-    <Compile Include="Scripts\capture\Descriptions\Info.cs" />
-    <Compile Include="Scripts\capture\Descriptions\ZoneDescription.cs" />
-    <Compile Include="Scripts\capture\ICommunicate.cs" />
-    <Compile Include="Scripts\capture\Logger.cs" />
-    <Compile Include="Scripts\capture\Server.cs" />
-    <Compile Include="Scripts\capture\ZoneBlock.cs" />
-    <Compile Include="Scripts\capture\Settings.cs" />
+    <Compile Include="Scripts\koth\Coms\Client.cs" />
+    <Compile Include="Scripts\koth\Coms\Command.cs" />
+    <Compile Include="Scripts\koth\Coms\ICommunicate.cs" />
+    <Compile Include="Scripts\koth\Coms\Server.cs" />
+    <Compile Include="Scripts\koth\Core.cs" />
+    <Compile Include="Scripts\koth\Descriptions\ScoreDescription.cs" />
+    <Compile Include="Scripts\koth\Descriptions\Session.cs" />
+    <Compile Include="Scripts\koth\Descriptions\Update.cs" />
+    <Compile Include="Scripts\koth\Descriptions\ZoneDescription.cs" />
+    <Compile Include="Scripts\koth\Tools.cs" />
+    <Compile Include="Scripts\koth\ZoneBlock.cs" />
+    <Compile Include="Scripts\koth\Descriptions\Settings.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CubeBlocks.sbc">
       <SubType>Designer</SubType>
     </None>
+    <None Include="EntityComponents.sbc" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
