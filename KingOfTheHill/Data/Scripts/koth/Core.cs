@@ -8,7 +8,7 @@ using VRage.Game.Components;
 using VRage.Game.ModAPI;
 using VRage.Utils;
 using KingOfTheHill.Descriptions;
-using KingOfTheHill.Coms;
+using ModNetworkAPI;
 
 namespace KingOfTheHill
 {

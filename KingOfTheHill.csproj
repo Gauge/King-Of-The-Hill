@@ -88,25 +88,25 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="KingOfTheHill\Data\Scripts\koth\Constants.cs" />
+    <Compile Include="KingOfTheHill\Data\Scripts\koth\ModNetworkAPI\Client.cs" />
+    <Compile Include="KingOfTheHill\Data\Scripts\koth\ModNetworkAPI\Command.cs" />
+    <Compile Include="KingOfTheHill\Data\Scripts\koth\ModNetworkAPI\ICommunicate.cs" />
+    <Compile Include="KingOfTheHill\Data\Scripts\koth\ModNetworkAPI\Server.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Scripts\koth\Coms\Client.cs" />
-    <Compile Include="Scripts\koth\Coms\Command.cs" />
-    <Compile Include="Scripts\koth\Coms\ICommunicate.cs" />
-    <Compile Include="Scripts\koth\Coms\Server.cs" />
-    <Compile Include="Scripts\koth\Core.cs" />
-    <Compile Include="Scripts\koth\Descriptions\ScoreDescription.cs" />
-    <Compile Include="Scripts\koth\Descriptions\Session.cs" />
-    <Compile Include="Scripts\koth\Descriptions\Update.cs" />
-    <Compile Include="Scripts\koth\Descriptions\ZoneDescription.cs" />
-    <Compile Include="Scripts\koth\Tools.cs" />
-    <Compile Include="Scripts\koth\ZoneBlock.cs" />
-    <Compile Include="Scripts\koth\Descriptions\Settings.cs" />
+    <Compile Include="KingOfTheHill\Data\Scripts\koth\Core.cs" />
+    <Compile Include="KingOfTheHill\Data\Scripts\koth\Descriptions\ScoreDescription.cs" />
+    <Compile Include="KingOfTheHill\Data\Scripts\koth\Descriptions\Session.cs" />
+    <Compile Include="KingOfTheHill\Data\Scripts\koth\Descriptions\Update.cs" />
+    <Compile Include="KingOfTheHill\Data\Scripts\koth\Descriptions\ZoneDescription.cs" />
+    <Compile Include="KingOfTheHill\Data\Scripts\koth\Tools.cs" />
+    <Compile Include="KingOfTheHill\Data\Scripts\koth\ZoneBlock.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="CubeBlocks.sbc">
+    <None Include="KingOfTheHill\Data\CubeBlocks.sbc">
       <SubType>Designer</SubType>
     </None>
-    <None Include="EntityComponents.sbc" />
+    <None Include="KingOfTheHill\Data\EntityComponents.sbc" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
