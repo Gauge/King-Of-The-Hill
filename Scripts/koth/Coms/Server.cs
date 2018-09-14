@@ -2,18 +2,11 @@
 using System;
 using VRage.Utils;
 
-namespace ModNetworkAPI
+namespace KingOfTheHill.Coms
 {
     internal class Server : ICommunicate
     {
-        /// <summary>
-        /// Event triggers apon reciveing data from the client
-        /// </summary>
         public event Action<Command> OnCommandRecived = delegate { };
-        
-        /// <summary>
-        /// Event triggers apon client chat input starting with this mods Keyword
-        /// </summary>
         public event Action<string> OnTerminalInput = delegate { };
 
         private ushort ModId;
@@ -31,6 +24,7 @@ namespace ModNetworkAPI
 
         public void Close()
         {
+            Tools.Log(MyLogSeverity.Info, "Unregisering handlers before close");
             MyAPIGateway.Utilities.MessageEntered -= HandleChatInput;
             MyAPIGateway.Multiplayer.UnregisterMessageHandler(ModId, HandleMessage);
         }
@@ -39,7 +33,9 @@ namespace ModNetworkAPI
         {
             try
             {
-                Command cmd = ((object)msg) as Command;
+                //Logger.Log(MyLogSeverity.Info, $"[Server] Recived message of length {msg.Length}");
+                Command cmd = MyAPIGateway.Utilities.SerializeFromBinary<Command>(msg);
+                //Logger.Log(MyLogSeverity.Info, cmd.ToString());
 
                 if (cmd != null)
                 {
@@ -48,7 +44,8 @@ namespace ModNetworkAPI
             }
             catch (Exception e)
             {
-                MyLog.Default.Error($"Did not recieve a command packet. Mod Id may be compromise. Please send a list of all mods used with this on to me (the mod owner)\n{e.ToString()}");
+                Tools.Log(MyLogSeverity.Warning, "Did not recieve a command packet. Mod Id may be compromise. Please send a list of all mods used with this on to me (the mod owner)");
+                Tools.Log(MyLogSeverity.Error, e.ToString());
             }
         }
 
@@ -74,7 +71,9 @@ namespace ModNetworkAPI
 
         public void SendCommand(Command cmd, ulong steamId = ulong.MinValue)
         {
-            byte[] data = ((object)cmd) as byte[];
+            byte[] data = MyAPIGateway.Utilities.SerializeToBinary<Command>(cmd);
+            //Logger.Log(MyLogSeverity.Info, $"[Server] Sending message of length {data.Length}");
+            //Logger.Log(MyLogSeverity.Info, cmd.ToString());
 
             if (steamId == ulong.MinValue)
             {

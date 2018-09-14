@@ -1,5 +1,6 @@
 ﻿using KingOfTheHill.Descriptions;
 using Sandbox.Common.ObjectBuilders;
+using Sandbox.Game.EntityComponents;
 using Sandbox.ModAPI;
 using Sandbox.ModAPI.Interfaces.Terminal;
 using System;
