@@ -3,7 +3,7 @@
     <EntityComponent xsi:type="MyObjectBuilder_ModStorageComponentDefinition">
       <Id>
         <TypeId>ModStorageComponent</TypeId>
-        <SubtypeId>[Dev] King of the Hill</SubtypeId>
+        <SubtypeId>koth</SubtypeId>
       </Id>
       <RegisteredStorageGuids>
         <guid>B7AF750E-68E3-4826-BD0E-A75BF36BA3E5</guid>

@@ -1,6 +1,5 @@
 ﻿using KingOfTheHill.Descriptions;
 using Sandbox.Common.ObjectBuilders;
-using Sandbox.Game.EntityComponents;
 using Sandbox.ModAPI;
 using Sandbox.ModAPI.Interfaces.Terminal;
 using System;
@@ -33,12 +32,30 @@ namespace KingOfTheHill
         public IMyBeacon ModBlock { get; private set; }
 
         /// <summary>
+        /// 
+        /// </summary>
+        private IMyFaction controlledByFaction = null;
+
+        public IMyFaction ControlledByFaction
+        {
+            get { return controlledByFaction; }
+            set
+            {
+                controlledByFaction = value;
+
+                if (Data != null)
+                {
+                    Data.ControlledFactionId = (value == null) ? 0 : value.FactionId;
+                }
+            }
+
+        }
+        /// <summary>
         /// Signal for points to be awarded
         /// </summary>
         public static event Action<ZoneBlock, IMyFaction, int> OnAwardPoints = delegate { };
 
         public static event Action<ZoneBlock> OnUpdate = delegate { };
-
 
         private Dictionary<long, int> ActiveEnemiesPerFaction = new Dictionary<long, int>();
         private bool IsInitialized = false;
@@ -230,15 +247,15 @@ namespace KingOfTheHill
                 speed = -GetProgress(Data.ContestedDrainRate);
                 Data.Progress += speed;
 
-                if (Data.ControlledByFaction == null)
+                if (ControlledByFaction == null)
                 {
-                    Data.ControlledByFaction = nominatedFaction;
+                    ControlledByFaction = nominatedFaction;
                 }
             }
             else if (factionCount == 0)
             {
                 State = ZoneStates.Idle;
-                Data.ControlledByFaction = null;
+                ControlledByFaction = null;
                 speed = -GetProgress(Data.IdleDrainRate);
                 Data.Progress += speed;
             }
@@ -248,7 +265,7 @@ namespace KingOfTheHill
                 color = Color.White;
                 speed = GetProgress(validatedPlayers.Count);
                 Data.Progress += speed;
-                Data.ControlledByFaction = nominatedFaction;
+                ControlledByFaction = nominatedFaction;
 
                 foreach (IMyFaction zoneFaction in factionsInZone)
                 {
@@ -274,7 +291,7 @@ namespace KingOfTheHill
 
             if (Data.Progress >= Data.ProgressWhenComplete)
             {
-                OnAwardPoints.Invoke(this, Data.ControlledByFaction, ActiveEnemiesPerFaction[Data.ControlledByFaction.FactionId]);
+                OnAwardPoints.Invoke(this, ControlledByFaction, ActiveEnemiesPerFaction[ControlledByFaction.FactionId]);
                 ResetActiveEnemies();
                 Data.Progress = 0;
             }
@@ -288,7 +305,7 @@ namespace KingOfTheHill
 
             if (MyAPIGateway.Multiplayer.IsServer)
             {
-                ModBlock.CustomName = $"{State.ToString().ToUpper()} - {((Data.Progress / Data.ProgressWhenComplete) * 100).ToString("g").Split('.')[0]}% {(State != ZoneStates.Idle ? $"[{Data.ControlledByFaction.Tag}]" : "")}";
+                ModBlock.CustomName = $"{State.ToString().ToUpper()} - {((Data.Progress / Data.ProgressWhenComplete) * 100).ToString("g").Split('.')[0]}% {(State != ZoneStates.Idle ? $"[{ControlledByFaction.Tag}]" : "")}";
             }
 
             if (localPlayer != null && playersInZone.Contains(localPlayer))
@@ -326,7 +343,7 @@ namespace KingOfTheHill
                         specialColor = "Blue";
                         break;
                 }
-                MyAPIGateway.Utilities.ShowNotification($"Allies: {allies}  Neutral: {neutral}  Enemies: {enemies} - {State.ToString().ToUpper()}: {((Data.Progress / Data.ProgressWhenComplete) * 100).ToString("n0")}% Speed: {speed * 100}% {(Data.ControlledByFaction != null ? $"Controlled By: {Data.ControlledByFaction.Tag}" : "")}", 1, specialColor);
+                MyAPIGateway.Utilities.ShowNotification($"Allies: {allies}  Neutral: {neutral}  Enemies: {enemies} - {State.ToString().ToUpper()}: {((Data.Progress / Data.ProgressWhenComplete) * 100).ToString("n0")}% Speed: {speed * 100}% {(ControlledByFaction != null ? $"Controlled By: {ControlledByFaction.Tag}" : "")}", 1, specialColor);
             }
 
             if (!MyAPIGateway.Utilities.IsDedicated)

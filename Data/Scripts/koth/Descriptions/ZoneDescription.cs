@@ -3,9 +3,7 @@ using Sandbox.Game.EntityComponents;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
-using System.Xml.Serialization;
 using VRage.Game.Components;
-using VRage.Game.ModAPI;
 using VRage.ModAPI;
 
 namespace KingOfTheHill.Descriptions
@@ -27,11 +25,11 @@ namespace KingOfTheHill.Descriptions
         [ProtoMember]
         public float ProgressWhenComplete { get; set; }
 
-        [XmlIgnore]
-        public IMyFaction ControlledByFaction { get; set; }
+        [ProtoMember]
+        public long ControlledFactionId { get; set; } = long.MinValue;
 
         [ProtoMember]
-        public long ControlledBy => ControlledByFaction.FactionId; // faction currently capturing the point
+        public long ControlledBy { get; set; } // faction currently capturing the point
 
         [ProtoMember]
         public float Radius { get; set; }
@@ -66,8 +64,7 @@ namespace KingOfTheHill.Descriptions
 
         public void Save(IMyEntity ent)
         {
-
-            MyModStorageComponentBase storage = (ent.Storage != null) ? ent.Storage : new MyModStorageComponent();
+            MyModStorageComponentBase storage = GetStorage(ent);
 
             if (storage.ContainsKey(StorageGuid))
             {
@@ -81,7 +78,7 @@ namespace KingOfTheHill.Descriptions
 
         public static ZoneDescription Load(IMyEntity ent)
         {
-            MyModStorageComponentBase storage = (ent.Storage != null) ? ent.Storage : new MyModStorageComponent();
+            MyModStorageComponentBase storage = GetStorage(ent);
 
             if (storage.ContainsKey(StorageGuid))
             {
@@ -119,6 +116,11 @@ namespace KingOfTheHill.Descriptions
         public override string ToString()
         {
             return $"(ZONE) Progress: {Progress}, ControlledBy: {ControlledBy}";
+        }
+
+        public static MyModStorageComponentBase GetStorage(IMyEntity entity)
+        {
+            return entity.Storage ?? (entity.Storage = new MyModStorageComponent());
         }
     }
 }

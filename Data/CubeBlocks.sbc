@@ -6,7 +6,7 @@
         <TypeId>Beacon</TypeId>
         <SubtypeId>ZoneBlock</SubtypeId>
       </Id>
-      <DisplayName>[Admin] Capture Zone Block</DisplayName>
+      <DisplayName>[Admin] koth</DisplayName>
       <Icon>Textures\GUI\Icons\Cubes\beacon.dds</Icon>
       <CubeSize>Large</CubeSize>
       <BlockTopology>TriangleMesh</BlockTopology>
