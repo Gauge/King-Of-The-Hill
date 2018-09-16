@@ -17,7 +17,7 @@ namespace KingOfTheHill.Descriptions
 
         public static Session Load()
         {
-            Session settings = null;
+            Session settings = new Session();
             try
             {
                 if (MyAPIGateway.Utilities.FileExistsInWorldStorage(Filename, typeof(Session)))
@@ -32,13 +32,13 @@ namespace KingOfTheHill.Descriptions
                 else
                 {
                     Tools.Log(MyLogSeverity.Info, "Config file not found. Loading default settings");
-                    Save(new Session());
+                    Save(settings);
                 }
             }
             catch (Exception e)
             {
                 Tools.Log(MyLogSeverity.Warning, $"Failed to load saved configuration. Loading defaults\n {e.ToString()}");
-                Save(new Session());
+                Save(settings);
             }
 
             return settings;

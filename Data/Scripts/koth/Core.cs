@@ -63,6 +63,9 @@ namespace KingOfTheHill
             }
             else
             {
+                IsInitilaized = true;
+                ZoneBlock.OnAwardPoints += AwardPoints;
+
                 Network.RegisterChatCommand("score", (args) => { MyAPIGateway.Utilities.ShowMissionScreen(Network.ModName, "King of the Hill", "", FormatScores()); } );
                 Network.RegisterChatCommand("save", (args) => { ServerCallback_Save(MyAPIGateway.Session.Player.SteamUserId, "save", null); });
                 Network.RegisterChatCommand("force-load", (args) => { ServerCallback_ForceLoad(MyAPIGateway.Session.Player.SteamUserId, "force_load", null); });
@@ -153,9 +156,7 @@ namespace KingOfTheHill
 
                 string message = $"{faction.Name} Scored {points} Points!";
 
-                // add in global messaging
-
-                Network.SendCommand("update", data: MyAPIGateway.Utilities.SerializeToBinary(GenerateUpdate()));
+                Network.SendCommand("update", message: message, data: MyAPIGateway.Utilities.SerializeToBinary(GenerateUpdate()));
             }
         }
 
@@ -251,7 +252,7 @@ namespace KingOfTheHill
             ZoneBlock zone = Zones.Find(z => z.Entity.EntityId == zd.BlockId && z.ModBlock.CubeGrid.EntityId == zd.GridId);
             zone.SetZone(zd);
 
-            Network.SendCommand("sync_zone", data:data);
+            Network.SendCommand("sync_zone", data:MyAPIGateway.Utilities.SerializeToBinary(zone.Data));
         }
 
         private void ServerCallback_Score(ulong steamId, string commandString, byte[] data)

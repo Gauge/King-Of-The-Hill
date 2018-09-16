@@ -45,7 +45,7 @@ namespace KingOfTheHill
 
                 if (Data != null)
                 {
-                    Data.ControlledFactionId = (value == null) ? 0 : value.FactionId;
+                    Data.ControlledBy = (value == null) ? 0 : value.FactionId;
                 }
             }
 
@@ -70,6 +70,7 @@ namespace KingOfTheHill
             Data = ZoneDescription.Load(Entity);
             if (Data == null)
             {
+                Tools.Log(MyLogSeverity.Warning, $"The data saved for {Entity.EntityId} returned null. loading defaults");   
                 Data = ZoneDescription.GetDefaultSettings();
             }
             Data.BlockId = ModBlock.EntityId;
@@ -80,23 +81,18 @@ namespace KingOfTheHill
 
         public void SetZone(ZoneDescription zone)
         {
+            float progress = Data.Progress;
+            long controlledBy = Data.ControlledBy;
+
+            Data = zone;
+
             if (MyAPIGateway.Multiplayer.IsServer)
             {
-                Data.ActivateOnCharacter = zone.ActivateOnCharacter;
-                Data.ActivateOnLargeGrid = zone.ActivateOnLargeGrid;
-                Data.ActivateOnPlayerCount = zone.ActivateOnPlayerCount;
-                Data.ActivateOnSmallGrid = zone.ActivateOnSmallGrid;
-                Data.ActivateOnUnpoweredGrid = zone.ActivateOnUnpoweredGrid;
-                Data.ActiveProgressRate = zone.ActiveProgressRate;
-                Data.ContestedDrainRate = zone.ContestedDrainRate;
-                Data.FlatProgressRate = zone.FlatProgressRate;
-                Data.Radius = zone.Radius;
+                Data.BlockId = ModBlock.EntityId;
+                Data.GridId = ModBlock.CubeGrid.EntityId;
+                Data.Progress = progress;
+                Data.ControlledBy = controlledBy;
             }
-            else
-            {
-                Data = zone;
-            }
-
         }
 
         public override void Close()
@@ -106,256 +102,263 @@ namespace KingOfTheHill
 
         public override void UpdateBeforeSimulation()
         {
-            if (!IsInitialized)
+            try
             {
-                CreateControls();
-                IsInitialized = true;
-            }
-
-            if (!ModBlock.IsFunctional || !ModBlock.Enabled || !ModBlock.IsWorking) return; // if the block is incomplete or turned off
-            MatrixD matrix = Entity.WorldMatrix;
-            Vector3D location = matrix.Translation;
-
-            IMyPlayer localPlayer = MyAPIGateway.Session.LocalHumanPlayer;
-
-            List<IMyPlayer> players = new List<IMyPlayer>();
-            List<IMyPlayer> playersInZone = new List<IMyPlayer>();
-            List<IMyFaction> factionsInZone = new List<IMyFaction>();
-
-            List<IMyPlayer> validatedPlayers = new List<IMyPlayer>(); // players that meet activation criteria
-            Dictionary<long, int> validatedPlayerCountByFaction = new Dictionary<long, int>();
-            List<IMyCubeGrid> validatedGrids = new List<IMyCubeGrid>();
-            IMyFaction nominatedFaction = null;
-
-            MyAPIGateway.Players.GetPlayers(players);
-
-            foreach (IMyPlayer p in players)
-            {
-                if (Vector3D.Distance(p.GetPosition(), location) > Data.Radius) continue;
-                playersInZone.Add(p);
-
-                if (!Data.ActivateOnCharacter && !(p.Controller.ControlledEntity is IMyCubeBlock)) continue;
-
-                IMyFaction f = MyAPIGateway.Session.Factions.TryGetPlayerFaction(p.IdentityId);
-                if (f == null) continue;
-
-                validatedPlayers.Add(p);
-
-                if ((p.Controller.ControlledEntity is IMyCubeBlock))
+                if (!IsInitialized)
                 {
-                    IMyCubeBlock cube = (p.Controller.ControlledEntity as IMyCubeBlock);
-                    IMyCubeGrid grid = cube.CubeGrid;
+                    CreateControls();
+                    IsInitialized = true;
+                }
 
-                    if (grid.IsStatic) continue;
+                if (!ModBlock.IsFunctional || !ModBlock.Enabled || !ModBlock.IsWorking) return; // if the block is incomplete or turned off
+                MatrixD matrix = Entity.WorldMatrix;
+                Vector3D location = matrix.Translation;
 
-                    if (!Data.ActivateOnUnpoweredGrid && !cube.IsWorking) continue;
+                IMyPlayer localPlayer = MyAPIGateway.Session.LocalHumanPlayer;
 
-                    if (!Data.ActivateOnCharacter)
+                List<IMyPlayer> players = new List<IMyPlayer>();
+                List<IMyPlayer> playersInZone = new List<IMyPlayer>();
+                List<IMyFaction> factionsInZone = new List<IMyFaction>();
+
+                List<IMyPlayer> validatedPlayers = new List<IMyPlayer>(); // players that meet activation criteria
+                Dictionary<long, int> validatedPlayerCountByFaction = new Dictionary<long, int>();
+                List<IMyCubeGrid> validatedGrids = new List<IMyCubeGrid>();
+                IMyFaction nominatedFaction = null;
+
+                MyAPIGateway.Players.GetPlayers(players);
+
+                foreach (IMyPlayer p in players)
+                {
+                    if (Vector3D.Distance(p.GetPosition(), location) > Data.Radius) continue;
+                    playersInZone.Add(p);
+
+                    if (!Data.ActivateOnCharacter && !(p.Controller.ControlledEntity is IMyCubeBlock)) continue;
+
+                    IMyFaction f = MyAPIGateway.Session.Factions.TryGetPlayerFaction(p.IdentityId);
+                    if (f == null) continue;
+
+                    validatedPlayers.Add(p);
+
+                    if ((p.Controller.ControlledEntity is IMyCubeBlock))
                     {
-                        if (grid.GridSizeEnum == MyCubeSize.Large)
-                        {
-                            if (!Data.ActivateOnLargeGrid)
-                            {
-                                validatedPlayers.Remove(p);
-                                continue;
-                            }
+                        IMyCubeBlock cube = (p.Controller.ControlledEntity as IMyCubeBlock);
+                        IMyCubeGrid grid = cube.CubeGrid;
 
-                            int blockCount = 0;
-                            grid.GetBlocks(temp, (block) => { blockCount++; return false; });
-                            if (blockCount < Data.MinLargeGridBlockCount)
+                        if (grid.IsStatic) continue;
+
+                        if (!Data.ActivateOnUnpoweredGrid && !cube.IsWorking) continue;
+
+                        if (!Data.ActivateOnCharacter)
+                        {
+                            if (grid.GridSizeEnum == MyCubeSize.Large)
                             {
-                                validatedPlayers.Remove(p);
-                                continue;
+                                if (!Data.ActivateOnLargeGrid)
+                                {
+                                    validatedPlayers.Remove(p);
+                                    continue;
+                                }
+
+                                int blockCount = 0;
+                                grid.GetBlocks(temp, (block) => { blockCount++; return false; });
+                                if (blockCount < Data.MinLargeGridBlockCount)
+                                {
+                                    validatedPlayers.Remove(p);
+                                    continue;
+                                }
+                            }
+                            else if (grid.GridSizeEnum == MyCubeSize.Small)
+                            {
+                                if (!Data.ActivateOnSmallGrid)
+                                {
+                                    validatedPlayers.Remove(p);
+                                    continue;
+                                }
+
+                                int blockCount = 0;
+                                grid.GetBlocks(temp, (block) => { blockCount++; return false; });
+                                if (blockCount < Data.MinSmallGridBlockCount)
+                                {
+                                    validatedPlayers.Remove(p);
+                                    continue;
+                                }
                             }
                         }
-                        else if (grid.GridSizeEnum == MyCubeSize.Small)
+
+                        if (Data.IgnoreCopilot)
                         {
-                            if (!Data.ActivateOnSmallGrid)
+                            if (validatedGrids.Contains(grid))
                             {
                                 validatedPlayers.Remove(p);
                                 continue;
                             }
-
-                            int blockCount = 0;
-                            grid.GetBlocks(temp, (block) => { blockCount++; return false; });
-                            if (blockCount < Data.MinSmallGridBlockCount)
+                            else
                             {
-                                validatedPlayers.Remove(p);
-                                continue;
+                                validatedGrids.Add(grid);
                             }
                         }
                     }
 
-                    if (Data.IgnoreCopilot)
+                    if (nominatedFaction == null)
                     {
-                        if (validatedGrids.Contains(grid))
+                        nominatedFaction = f;
+                    }
+
+                    if (!ActiveEnemiesPerFaction.ContainsKey(f.FactionId))
+                    {
+                        ActiveEnemiesPerFaction.Add(f.FactionId, 0);
+                    }
+
+                    if (!validatedPlayerCountByFaction.ContainsKey(f.FactionId))
+                    {
+                        validatedPlayerCountByFaction.Add(f.FactionId, 1);
+                        factionsInZone.Add(f);
+                    }
+                    else
+                    {
+                        validatedPlayerCountByFaction[f.FactionId]++;
+                    }
+                }
+
+                bool isContested = false;
+                for (int i = 0; i < factionsInZone.Count; i++)
+                {
+                    for (int j = 0; j < factionsInZone.Count; j++)
+                    {
+                        if (factionsInZone[i] == factionsInZone[j]) continue;
+
+                        if (MyAPIGateway.Session.Factions.GetRelationBetweenFactions(factionsInZone[i].FactionId, factionsInZone[j].FactionId) == MyRelationsBetweenFactions.Enemies)
                         {
-                            validatedPlayers.Remove(p);
-                            continue;
-                        }
-                        else
-                        {
-                            validatedGrids.Add(grid);
+                            isContested = true;
+                            break;
                         }
                     }
                 }
 
-                if (nominatedFaction == null)
-                {
-                    nominatedFaction = f;
-                }
+                int factionCount = validatedPlayerCountByFaction.Keys.Count;
+                Color color = Color.Gray;
 
-                if (!ActiveEnemiesPerFaction.ContainsKey(f.FactionId))
+                float speed = 0;
+                if (isContested)
                 {
-                    ActiveEnemiesPerFaction.Add(f.FactionId, 0);
-                }
+                    State = ZoneStates.Contested;
+                    color = Color.Orange;
+                    speed = -GetProgress(Data.ContestedDrainRate);
+                    Data.Progress += speed;
 
-                if (!validatedPlayerCountByFaction.ContainsKey(f.FactionId))
+                    if (ControlledByFaction == null)
+                    {
+                        ControlledByFaction = nominatedFaction;
+                    }
+                }
+                else if (factionCount == 0)
                 {
-                    validatedPlayerCountByFaction.Add(f.FactionId, 1);
-                    factionsInZone.Add(f);
+                    State = ZoneStates.Idle;
+                    ControlledByFaction = null;
+                    speed = -GetProgress(Data.IdleDrainRate);
+                    Data.Progress += speed;
                 }
                 else
                 {
-                    validatedPlayerCountByFaction[f.FactionId]++;
-                }
-            }
+                    State = ZoneStates.Active;
+                    color = Color.White;
+                    speed = GetProgress(validatedPlayers.Count);
+                    Data.Progress += speed;
+                    ControlledByFaction = nominatedFaction;
 
-            bool isContested = false;
-            for (int i = 0; i < factionsInZone.Count; i++)
-            {
-                for (int j = 0; j < factionsInZone.Count; j++)
-                {
-                    if (factionsInZone[i] == factionsInZone[j]) continue;
-
-                    if (MyAPIGateway.Session.Factions.GetRelationBetweenFactions(factionsInZone[i].FactionId, factionsInZone[j].FactionId) == MyRelationsBetweenFactions.Enemies)
+                    foreach (IMyFaction zoneFaction in factionsInZone)
                     {
-                        isContested = true;
-                        break;
+                        int enemyCount = 0;
+                        foreach (IMyPlayer p in players)
+                        {
+                            IMyFaction f = MyAPIGateway.Session.Factions.TryGetPlayerFaction(p.IdentityId);
+
+                            if (f == null || f.FactionId == zoneFaction.FactionId) continue;
+
+                            if (MyAPIGateway.Session.Factions.GetRelationBetweenFactions(f.FactionId, zoneFaction.FactionId) == MyRelationsBetweenFactions.Enemies)
+                            {
+                                enemyCount++;
+                            }
+                        }
+
+                        if (ActiveEnemiesPerFaction[zoneFaction.FactionId] < enemyCount)
+                        {
+                            ActiveEnemiesPerFaction[zoneFaction.FactionId] = enemyCount;
+                        }
                     }
                 }
-            }
 
-            int factionCount = validatedPlayerCountByFaction.Keys.Count;
-            Color color = Color.Gray;
-
-            float speed = 0;
-            if (isContested)
-            {
-                State = ZoneStates.Contested;
-                color = Color.Orange;
-                speed = -GetProgress(Data.ContestedDrainRate);
-                Data.Progress += speed;
-
-                if (ControlledByFaction == null)
+                if (Data.Progress >= Data.ProgressWhenComplete)
                 {
-                    ControlledByFaction = nominatedFaction;
+                    OnAwardPoints.Invoke(this, ControlledByFaction, ActiveEnemiesPerFaction[ControlledByFaction.FactionId]);
+                    ResetActiveEnemies();
+                    Data.Progress = 0;
                 }
-            }
-            else if (factionCount == 0)
-            {
-                State = ZoneStates.Idle;
-                ControlledByFaction = null;
-                speed = -GetProgress(Data.IdleDrainRate);
-                Data.Progress += speed;
-            }
-            else
-            {
-                State = ZoneStates.Active;
-                color = Color.White;
-                speed = GetProgress(validatedPlayers.Count);
-                Data.Progress += speed;
-                ControlledByFaction = nominatedFaction;
 
-                foreach (IMyFaction zoneFaction in factionsInZone)
+                if (Data.Progress <= 0)
                 {
-                    int enemyCount = 0;
-                    foreach (IMyPlayer p in players)
+                    Data.Progress = 0;
+                }
+
+                // display info
+
+                if (MyAPIGateway.Multiplayer.IsServer)
+                {
+                    ModBlock.CustomName = $"{State.ToString().ToUpper()} - {((Data.Progress / Data.ProgressWhenComplete) * 100).ToString("g").Split('.')[0]}% {(State != ZoneStates.Idle ? $"[{ControlledByFaction.Tag}]" : "")}";
+                }
+
+                if (localPlayer != null && playersInZone.Contains(localPlayer))
+                {
+                    int allies = 0;
+                    int enemies = 0;
+                    int neutral = 0;
+                    foreach (IMyPlayer p in playersInZone)
                     {
-                        IMyFaction f = MyAPIGateway.Session.Factions.TryGetPlayerFaction(p.IdentityId);
+                        if (!Data.ActivateOnCharacter && !(p.Controller.ControlledEntity is IMyCubeBlock)) continue;
 
-                        if (f == null || f.FactionId == zoneFaction.FactionId) continue;
-
-                        if (MyAPIGateway.Session.Factions.GetRelationBetweenFactions(f.FactionId, zoneFaction.FactionId) == MyRelationsBetweenFactions.Enemies)
+                        switch (localPlayer.GetRelationTo(p.IdentityId))
                         {
-                            enemyCount++;
+                            case MyRelationsBetweenPlayerAndBlock.Owner:
+                            case MyRelationsBetweenPlayerAndBlock.FactionShare:
+                                allies++;
+                                break;
+                            case MyRelationsBetweenPlayerAndBlock.Neutral:
+                                neutral++;
+                                break;
+                            case MyRelationsBetweenPlayerAndBlock.Enemies:
+                            case MyRelationsBetweenPlayerAndBlock.NoOwnership:
+                                enemies++;
+                                break;
                         }
                     }
 
-                    if (ActiveEnemiesPerFaction[zoneFaction.FactionId] < enemyCount)
+                    string specialColor = "White";
+                    switch (State)
                     {
-                        ActiveEnemiesPerFaction[zoneFaction.FactionId] = enemyCount;
-                    }
-                }
-            }
-
-            if (Data.Progress >= Data.ProgressWhenComplete)
-            {
-                OnAwardPoints.Invoke(this, ControlledByFaction, ActiveEnemiesPerFaction[ControlledByFaction.FactionId]);
-                ResetActiveEnemies();
-                Data.Progress = 0;
-            }
-
-            if (Data.Progress <= 0)
-            {
-                Data.Progress = 0;
-            }
-
-            // display info
-
-            if (MyAPIGateway.Multiplayer.IsServer)
-            {
-                ModBlock.CustomName = $"{State.ToString().ToUpper()} - {((Data.Progress / Data.ProgressWhenComplete) * 100).ToString("g").Split('.')[0]}% {(State != ZoneStates.Idle ? $"[{ControlledByFaction.Tag}]" : "")}";
-            }
-
-            if (localPlayer != null && playersInZone.Contains(localPlayer))
-            {
-                int allies = 0;
-                int enemies = 0;
-                int neutral = 0;
-                foreach (IMyPlayer p in playersInZone)
-                {
-                    if (!Data.ActivateOnCharacter && !(p.Controller.ControlledEntity is IMyCubeBlock)) continue;
-
-                    switch (localPlayer.GetRelationTo(p.IdentityId))
-                    {
-                        case MyRelationsBetweenPlayerAndBlock.Owner:
-                        case MyRelationsBetweenPlayerAndBlock.FactionShare:
-                            allies++;
+                        case ZoneStates.Contested:
+                            specialColor = "Red";
                             break;
-                        case MyRelationsBetweenPlayerAndBlock.Neutral:
-                            neutral++;
-                            break;
-                        case MyRelationsBetweenPlayerAndBlock.Enemies:
-                        case MyRelationsBetweenPlayerAndBlock.NoOwnership:
-                            enemies++;
+                        case ZoneStates.Active:
+                            specialColor = "Blue";
                             break;
                     }
+                    MyAPIGateway.Utilities.ShowNotification($"Allies: {allies}  Neutral: {neutral}  Enemies: {enemies} - {State.ToString().ToUpper()}: {((Data.Progress / Data.ProgressWhenComplete) * 100).ToString("n0")}% Speed: {speed * 100}% {(ControlledByFaction != null ? $"Controlled By: {ControlledByFaction.Tag}" : "")}", 1, specialColor);
                 }
 
-                string specialColor = "White";
-                switch (State)
+                if (!MyAPIGateway.Utilities.IsDedicated)
                 {
-                    case ZoneStates.Contested:
-                        specialColor = "Red";
-                        break;
-                    case ZoneStates.Active:
-                        specialColor = "Blue";
-                        break;
+                    color.A = 3;
+                    MySimpleObjectDraw.DrawTransparentSphere(ref matrix, Data.Radius, ref color, MySimpleObjectRasterizer.Solid, 20, null, MyStringId.GetOrCompute("???"), 0.12f, -1);
                 }
-                MyAPIGateway.Utilities.ShowNotification($"Allies: {allies}  Neutral: {neutral}  Enemies: {enemies} - {State.ToString().ToUpper()}: {((Data.Progress / Data.ProgressWhenComplete) * 100).ToString("n0")}% Speed: {speed * 100}% {(ControlledByFaction != null ? $"Controlled By: {ControlledByFaction.Tag}" : "")}", 1, specialColor);
-            }
 
-            if (!MyAPIGateway.Utilities.IsDedicated)
-            {
-                color.A = 3;
-                MySimpleObjectDraw.DrawTransparentSphere(ref matrix, Data.Radius, ref color, MySimpleObjectRasterizer.Solid, 20, null, MyStringId.GetOrCompute("???"), 0.12f, -1);
+                if (MyAPIGateway.Multiplayer.IsServer && playersInZone.Count != LastPlayerCount)
+                {
+                    LastPlayerCount = playersInZone.Count;
+                    OnUpdate.Invoke(this);
+                }
             }
-
-            if (MyAPIGateway.Multiplayer.IsServer && playersInZone.Count != LastPlayerCount)
+            catch (Exception e)
             {
-                LastPlayerCount = playersInZone.Count;
-                OnUpdate.Invoke(this);
+                Tools.Log(MyLogSeverity.Error, e.ToString());
             }
         }
 

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using VRage.Game.Components;
 using VRage.ModAPI;
+using VRage.Utils;
 
 namespace KingOfTheHill.Descriptions
 {
@@ -24,9 +25,6 @@ namespace KingOfTheHill.Descriptions
 
         [ProtoMember]
         public float ProgressWhenComplete { get; set; }
-
-        [ProtoMember]
-        public long ControlledFactionId { get; set; } = long.MinValue;
 
         [ProtoMember]
         public long ControlledBy { get; set; } // faction currently capturing the point
@@ -72,6 +70,7 @@ namespace KingOfTheHill.Descriptions
             }
             else
             {
+                Tools.Log(MyLogSeverity.Info, $"Saved new Data");
                 storage.Add(new KeyValuePair<Guid, string>(StorageGuid, MyAPIGateway.Utilities.SerializeToXML(this)));
             }
         }
@@ -84,8 +83,12 @@ namespace KingOfTheHill.Descriptions
             {
                 return MyAPIGateway.Utilities.SerializeFromXML<ZoneDescription>(storage[StorageGuid]);
             }
-
-            return null;
+            else
+            {
+               
+                Tools.Log(MyLogSeverity.Info, $"No data saved for:{ent.EntityId}. Loading Defaults");
+                return GetDefaultSettings();
+            }
         }
 
         public static ZoneDescription GetDefaultSettings()
