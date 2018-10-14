@@ -346,8 +346,8 @@ namespace KingOfTheHill
 
                 if (!MyAPIGateway.Utilities.IsDedicated)
                 {
-                    color.A = 3;
-                    MySimpleObjectDraw.DrawTransparentSphere(ref matrix, Data.Radius, ref color, MySimpleObjectRasterizer.Solid, 20, null, MyStringId.GetOrCompute("???"), 0.12f, -1);
+                    color.A = 6;
+                    MySimpleObjectDraw.DrawTransparentSphere(ref matrix, Data.Radius, ref color, MySimpleObjectRasterizer.Solid, 20, null, MyStringId.GetOrCompute("Square"), 0.12f, -1, null);
                 }
 
                 if (MyAPIGateway.Multiplayer.IsServer && playersInZone.Count != LastPlayerCount)
