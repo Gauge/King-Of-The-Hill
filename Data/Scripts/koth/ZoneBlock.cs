@@ -32,7 +32,6 @@ namespace KingOfTheHill
         public IMyBeacon ModBlock { get; private set; }
 
         private ZoneStates lastState = ZoneStates.Idle;
-        private int lastPercent = 0;
 
         /// <summary>
         /// 
@@ -311,10 +310,9 @@ namespace KingOfTheHill
 
                     ModBlock.CustomName = $"{State.ToString().ToUpper()} - {percent}% {(State != ZoneStates.Idle ? $"[{ControlledByFaction.Tag}]" : "")}";
 
-                    if (lastState != State || (lastPercent != percent && percent % 25 == 0))
+                    if (lastState != State)
                     {
-                        MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, ModBlock.CustomName);
-                        lastPercent = percent;
+                        MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, $"KotH: {ModBlock.CustomName}");
                     }
                 }
 

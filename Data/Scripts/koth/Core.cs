@@ -156,7 +156,7 @@ namespace KingOfTheHill
 
                 string message = $"{faction.Name} Scored {points} Points!";
 
-                MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, message);
+                MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, $"KotH: {message}");
                 Network.SendCommand("update", message: message, data: MyAPIGateway.Utilities.SerializeToBinary(GenerateUpdate()));
             }
         }

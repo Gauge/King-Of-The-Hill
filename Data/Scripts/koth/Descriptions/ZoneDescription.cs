@@ -12,7 +12,7 @@ namespace KingOfTheHill.Descriptions
     [ProtoContract]
     public class ZoneDescription
     {
-        public readonly static Guid StorageGuid = new Guid("B7AF750E-68E3-4826-BD0E-A75BF36BA3E6");
+        public readonly static Guid StorageGuid = new Guid("B7AF750E-68E3-4826-BD0E-A75BF36BA3E5");
 
         [ProtoMember]
         public long GridId { get; set; }
