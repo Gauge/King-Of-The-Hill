@@ -31,6 +31,9 @@ namespace KingOfTheHill
         /// </summary>
         public IMyBeacon ModBlock { get; private set; }
 
+        private ZoneStates lastState = ZoneStates.Idle;
+        private int lastPercent = 0;
+
         /// <summary>
         /// 
         /// </summary>
@@ -236,6 +239,7 @@ namespace KingOfTheHill
 
                 int factionCount = validatedPlayerCountByFaction.Keys.Count;
                 Color color = Color.Gray;
+                lastState = State;
 
                 float speed = 0;
                 if (isContested)
@@ -303,7 +307,15 @@ namespace KingOfTheHill
 
                 if (MyAPIGateway.Multiplayer.IsServer)
                 {
-                    ModBlock.CustomName = $"{State.ToString().ToUpper()} - {((Data.Progress / Data.ProgressWhenComplete) * 100).ToString("g").Split('.')[0]}% {(State != ZoneStates.Idle ? $"[{ControlledByFaction.Tag}]" : "")}";
+                    int percent = (int)Math.Floor((Data.Progress / Data.ProgressWhenComplete) * 100f);
+
+                    ModBlock.CustomName = $"{State.ToString().ToUpper()} - {percent}% {(State != ZoneStates.Idle ? $"[{ControlledByFaction.Tag}]" : "")}";
+
+                    if (lastState != State || (lastPercent != percent && percent % 25 == 0))
+                    {
+                        MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, ModBlock.CustomName);
+                        lastPercent = percent;
+                    }
                 }
 
                 if (localPlayer != null && playersInZone.Contains(localPlayer))
