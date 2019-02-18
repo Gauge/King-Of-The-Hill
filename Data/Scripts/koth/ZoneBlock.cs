@@ -31,13 +31,7 @@ namespace KingOfTheHill
         /// </summary>
         public IMyBeacon ModBlock { get; private set; }
 
-        private ZoneStates lastState = ZoneStates.Idle;
-
-        /// <summary>
-        /// 
-        /// </summary>
         private IMyFaction controlledByFaction = null;
-
         public IMyFaction ControlledByFaction
         {
             get { return controlledByFaction; }
@@ -52,16 +46,21 @@ namespace KingOfTheHill
             }
 
         }
+
         /// <summary>
         /// Signal for points to be awarded
         /// </summary>
         public static event Action<ZoneBlock, IMyFaction, int> OnAwardPoints = delegate { };
 
+        public static event Action<ZoneBlock, IMyPlayer, IMyFaction> OnPlayerDied = delegate { };
+
         public static event Action<ZoneBlock> OnUpdate = delegate { };
 
         private Dictionary<long, int> ActiveEnemiesPerFaction = new Dictionary<long, int>();
         private bool IsInitialized = false;
-        private int LastPlayerCount = 0;
+        private int lastPlayerCount = 0;
+        private ZoneStates lastState = ZoneStates.Idle;
+
         private List<IMySlimBlock> temp = new List<IMySlimBlock>();
 
         public override void Init(MyObjectBuilder_EntityBase objectBuilder)
@@ -131,8 +130,18 @@ namespace KingOfTheHill
 
                 foreach (IMyPlayer p in players)
                 {
+                    if (p.Character != null)
+                    {
+                        p.Character.CharacterDied -= Died;
+                    }
+
                     if (Vector3D.Distance(p.GetPosition(), location) > Data.Radius) continue;
                     playersInZone.Add(p);
+
+                    if (p.Character != null)
+                    {
+                        p.Character.CharacterDied += Died;
+                    }
 
                     if (!Data.ActivateOnCharacter && !(p.Controller.ControlledEntity is IMyCubeBlock)) continue;
 
@@ -356,13 +365,13 @@ namespace KingOfTheHill
 
                 if (!MyAPIGateway.Utilities.IsDedicated)
                 {
-                    color.A = 6;
-                    MySimpleObjectDraw.DrawTransparentSphere(ref matrix, Data.Radius, ref color, MySimpleObjectRasterizer.Solid, 20, null, MyStringId.GetOrCompute("Square"), 0.12f, -1, null);
+                    color.A = (byte)Data.Opacity;
+                    MySimpleObjectDraw.DrawTransparentSphere(ref matrix, Data.Radius, ref color, MySimpleObjectRasterizer.Solid, 20, null, MyStringId.GetOrCompute("KothTransparency"), 0.12f, -1, null);
                 }
 
-                if (MyAPIGateway.Multiplayer.IsServer && playersInZone.Count != LastPlayerCount)
+                if (MyAPIGateway.Multiplayer.IsServer && playersInZone.Count != lastPlayerCount)
                 {
-                    LastPlayerCount = playersInZone.Count;
+                    lastPlayerCount = playersInZone.Count;
                     OnUpdate.Invoke(this);
                 }
             }
@@ -370,6 +379,27 @@ namespace KingOfTheHill
             {
                 Tools.Log(MyLogSeverity.Error, e.ToString());
             }
+        }
+
+        private void Died(IMyCharacter character)
+        {
+            List<IMyPlayer> players = new List<IMyPlayer>();
+            MyAPIGateway.Players.GetPlayers(players);
+       
+            foreach (IMyPlayer p in players)
+            {
+                if (p.Character == character)
+                {
+                    IMyFaction f = MyAPIGateway.Session.Factions.TryGetPlayerFaction(p.IdentityId);
+                    if (f != null)
+                    {
+                        OnPlayerDied.Invoke(this, p, f);
+                    }
+
+                    break;
+                }
+            }
+
         }
 
         private float GetProgress(float progressModifier)
@@ -442,6 +472,17 @@ namespace KingOfTheHill
                 Slider.Title = MyStringId.GetOrCompute("Contested Drain Rate");
                 //Slider.Tooltip = MyStringId.GetOrCompute("The minimum blocks considered an activation grid");
                 Slider.SetLimits(0, 5);
+                MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
+                Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_PointsRemovedOnDeath");
+                Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+                Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+                Slider.Setter = (block, value) => { Data.PointsRemovedOnDeath = (int)value; OnUpdate.Invoke(this); };
+                Slider.Getter = (block) => Data.PointsRemovedOnDeath;
+                Slider.Writer = (block, value) => value.Append($"{Data.PointsRemovedOnDeath}");
+                Slider.Title = MyStringId.GetOrCompute("Points Removed On Death");
+                Slider.SetLimits(0, 1000);
                 MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
 
                 Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_ActivateOnCharacter");
@@ -520,6 +561,18 @@ namespace KingOfTheHill
                 Slider.Title = MyStringId.GetOrCompute("LargeGrid min blocks");
                 Slider.Tooltip = MyStringId.GetOrCompute("The minimum blocks considered an activation grid");
                 Slider.SetLimits(Constants.MinBlockCount, Constants.MaxBlockCount);
+                MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
+                Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_Opacity");
+                Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+                Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+                Slider.Setter = (block, value) => { Data.Opacity = value; OnUpdate.Invoke(this); };
+                Slider.Getter = (block) => Data.Opacity;
+                Slider.Writer = (block, value) => value.Append($"{Data.Opacity} alpha");
+                Slider.Title = MyStringId.GetOrCompute("Opacity");
+                Slider.Tooltip = MyStringId.GetOrCompute("Sphere visiblility");
+                Slider.SetLimits(0, 255);
                 MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
             }
         }

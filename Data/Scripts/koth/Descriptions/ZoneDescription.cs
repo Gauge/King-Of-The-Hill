@@ -46,6 +46,9 @@ namespace KingOfTheHill.Descriptions
         public bool IgnoreCopilot { get; set; }  // Counts each crew member as an activator
 
         [ProtoMember]
+        public int PointsRemovedOnDeath { get; set; } 
+
+        [ProtoMember]
         public int MinSmallGridBlockCount { get; set; }
         [ProtoMember]
         public int MinLargeGridBlockCount { get; set; }
@@ -59,6 +62,9 @@ namespace KingOfTheHill.Descriptions
         public bool FlatProgressRate { get; set; }
         [ProtoMember]
         public float ActiveProgressRate { get; set; } // the flat progress rate applied
+
+        [ProtoMember]
+        public float Opacity { get; set; }
 
         public void Save(IMyEntity ent)
         {
@@ -110,9 +116,11 @@ namespace KingOfTheHill.Descriptions
                 ActivateOnLargeGrid = true,
                 ActivateOnUnpoweredGrid = false,
                 IgnoreCopilot = false,
+                PointsRemovedOnDeath = 0,
                 MinSmallGridBlockCount = 50,
                 MinLargeGridBlockCount = 25,
-                ActivateOnPlayerCount = 1
+                ActivateOnPlayerCount = 1,
+                Opacity = 150
             };
         }
 

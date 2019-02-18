@@ -65,8 +65,9 @@ namespace KingOfTheHill
             {
                 IsInitilaized = true;
                 ZoneBlock.OnAwardPoints += AwardPoints;
+                ZoneBlock.OnPlayerDied += PlayerDied;
 
-                Network.RegisterChatCommand("score", (args) => { MyAPIGateway.Utilities.ShowMissionScreen(Network.ModName, "King of the Hill", "", FormatScores()); } );
+                Network.RegisterChatCommand("score", (args) => { MyAPIGateway.Utilities.ShowMissionScreen(Network.ModName, "King of the Hill", "", FormatScores()); });
                 Network.RegisterChatCommand("save", (args) => { ServerCallback_Save(MyAPIGateway.Session.Player.SteamUserId, "save", null); });
                 Network.RegisterChatCommand("force-load", (args) => { ServerCallback_ForceLoad(MyAPIGateway.Session.Player.SteamUserId, "force_load", null); });
 
@@ -127,6 +128,9 @@ namespace KingOfTheHill
         {
             Network.Close();
             ZoneBlock.OnUpdate -= ZoneUpdate;
+
+            ZoneBlock.OnAwardPoints -= AwardPoints;
+            ZoneBlock.OnPlayerDied -= PlayerDied;
         }
 
         private void AwardPoints(ZoneBlock zone, IMyFaction faction, int enemies)
@@ -155,6 +159,38 @@ namespace KingOfTheHill
                 SaveData();
 
                 string message = $"{faction.Name} Scored {points} Points!";
+
+                MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, $"KotH: {message}");
+                Network.SendCommand("update", message: message, data: MyAPIGateway.Utilities.SerializeToBinary(GenerateUpdate()));
+            }
+        }
+
+        private void PlayerDied(ZoneBlock zone, IMyPlayer player, IMyFaction faction)
+        {
+            if (zone.Data.PointsRemovedOnDeath == 0) return;
+
+            if (MyAPIGateway.Multiplayer.IsServer)
+            {
+                long facId = faction.FactionId;
+                if (!Scores.Keys.Contains(faction.FactionId))
+                {
+                    Scores.Add(facId, new ScoreDescription()
+                    {
+                        FactionId = facId,
+                        FactionName = faction.Name,
+                        FactionTag = faction.Tag,
+                        Points = 1
+                    });
+                }
+
+                Scores[facId].Points -= zone.Data.PointsRemovedOnDeath;
+
+                if (Scores[facId].Points < 1)
+                {
+                    Scores[facId].Points = 1;
+                }
+
+                string message = $"[{faction.Tag}] {player.DisplayName} Died: -{zone.Data.PointsRemovedOnDeath} Points";
 
                 MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, $"KotH: {message}");
                 Network.SendCommand("update", message: message, data: MyAPIGateway.Utilities.SerializeToBinary(GenerateUpdate()));
@@ -217,8 +253,6 @@ namespace KingOfTheHill
 
             foreach (ZoneDescription zd in content.Zones)
             {
-                //Tools.Log(MyLogSeverity.Info, $@"{zd.GridId}|{zd.BlockId} - Progress: {zd.Progress}/{zd.ProgressWhenComplete} Radius: {zd.Radius}");
-
                 ZoneBlock zone = Zones.Find(z => z.Entity.EntityId == zd.BlockId && z.ModBlock.CubeGrid.EntityId == zd.GridId);
 
                 if (zone != null)
@@ -253,7 +287,7 @@ namespace KingOfTheHill
             ZoneBlock zone = Zones.Find(z => z.Entity.EntityId == zd.BlockId && z.ModBlock.CubeGrid.EntityId == zd.GridId);
             zone.SetZone(zd);
 
-            Network.SendCommand("sync_zone", data:MyAPIGateway.Utilities.SerializeToBinary(zone.Data));
+            Network.SendCommand("sync_zone", data: MyAPIGateway.Utilities.SerializeToBinary(zone.Data));
         }
 
         private void ServerCallback_Score(ulong steamId, string commandString, byte[] data)
@@ -264,7 +298,7 @@ namespace KingOfTheHill
                 formatedScores.AppendLine($"[{score.FactionTag}] {score.FactionName}: {score.Points}");
             }
 
-            Network.SendCommand("score", data:ASCIIEncoding.ASCII.GetBytes(FormatScores()), steamId:steamId);
+            Network.SendCommand("score", data: ASCIIEncoding.ASCII.GetBytes(FormatScores()), steamId: steamId);
         }
 
         private void ServerCallback_Save(ulong steamId, string commandString, byte[] data)

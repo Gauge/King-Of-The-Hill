@@ -107,6 +107,7 @@
       <SubType>Designer</SubType>
     </None>
     <None Include="Data\EntityComponents.sbc" />
+    <None Include="Data\TransparentMaterials.sbc" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
