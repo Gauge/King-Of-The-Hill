@@ -46,7 +46,10 @@ namespace KingOfTheHill.Descriptions
         public bool IgnoreCopilot { get; set; }  // Counts each crew member as an activator
 
         [ProtoMember]
-        public int PointsRemovedOnDeath { get; set; } 
+        public bool AwardPointsAsCredits { get; set; }
+
+        [ProtoMember]
+        public int PointsRemovedOnDeath { get; set; }
 
         [ProtoMember]
         public int MinSmallGridBlockCount { get; set; }
@@ -60,6 +63,7 @@ namespace KingOfTheHill.Descriptions
 
         [ProtoMember]
         public bool FlatProgressRate { get; set; }
+
         [ProtoMember]
         public float ActiveProgressRate { get; set; } // the flat progress rate applied
 
@@ -91,7 +95,7 @@ namespace KingOfTheHill.Descriptions
             }
             else
             {
-               
+
                 Tools.Log(MyLogSeverity.Info, $"No data saved for:{ent.EntityId}. Loading Defaults");
                 return GetDefaultSettings();
             }

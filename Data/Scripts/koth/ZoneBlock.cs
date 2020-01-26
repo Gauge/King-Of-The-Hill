@@ -71,7 +71,7 @@ namespace KingOfTheHill
             Data = ZoneDescription.Load(Entity);
             if (Data == null)
             {
-                Tools.Log(MyLogSeverity.Warning, $"The data saved for {Entity.EntityId} returned null. loading defaults");   
+                Tools.Log(MyLogSeverity.Warning, $"The data saved for {Entity.EntityId} returned null. loading defaults");
                 Data = ZoneDescription.GetDefaultSettings();
             }
             Data.BlockId = ModBlock.EntityId;
@@ -385,7 +385,7 @@ namespace KingOfTheHill
         {
             List<IMyPlayer> players = new List<IMyPlayer>();
             MyAPIGateway.Players.GetPlayers(players);
-       
+
             foreach (IMyPlayer p in players)
             {
                 if (p.Character == character)
@@ -489,7 +489,8 @@ namespace KingOfTheHill
                 Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
                 Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
 
-                Checkbox.Setter = (block, value) => {
+                Checkbox.Setter = (block, value) =>
+                {
                     Data.ActivateOnCharacter = value;
                     UpdateControls();
                 };
@@ -537,6 +538,16 @@ namespace KingOfTheHill
                 Checkbox.Getter = (block) => Data.IgnoreCopilot;
                 Checkbox.Title = MyStringId.GetOrCompute("Ignore Copilot");
                 Checkbox.Tooltip = MyStringId.GetOrCompute("Will count a copiloted grid as a single person");
+                MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
+
+                Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_AwardPointsAsCredits");
+                Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+                Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+                Checkbox.Setter = (block, value) => { Data.AwardPointsAsCredits = value; OnUpdate.Invoke(this); };
+                Checkbox.Getter = (block) => Data.AwardPointsAsCredits;
+                Checkbox.Title = MyStringId.GetOrCompute("Award Points As Credits");
+                Checkbox.Tooltip = MyStringId.GetOrCompute("Will deposit credit into the capping faction");
                 MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
 
                 Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_MinSmallGridBlockCount");

@@ -1,5 +1,4 @@
 ﻿using Sandbox.ModAPI;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -156,9 +155,18 @@ namespace KingOfTheHill
 
                 Scores[facId].Points += points;
 
-                SaveData();
+                string message = "";
+                if (zone.Data.AwardPointsAsCredits)
+                {
+                    faction.RequestChangeBalance(points * 1000);
+                    message = $"{faction.Name} Scored {points} Points! ({points * 1000} credits)";
+                }
+                else
+                {
+                    message = $"{faction.Name} Scored {points} Points!";
+                }
 
-                string message = $"{faction.Name} Scored {points} Points!";
+                SaveData();
 
                 MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, $"KotH: {message}");
                 Network.SendCommand("update", message: message, data: MyAPIGateway.Utilities.SerializeToBinary(GenerateUpdate()));
