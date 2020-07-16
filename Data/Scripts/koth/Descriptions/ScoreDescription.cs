@@ -5,16 +5,16 @@ namespace KingOfTheHill.Descriptions
     [ProtoContract]
     public class ScoreDescription
     {
-        [ProtoMember]
+        [ProtoMember(1)]
         public long FactionId { get; set; }
 
-        [ProtoMember]
+        [ProtoMember(2)]
         public string FactionName { get; set; }
 
-        [ProtoMember]
+        [ProtoMember(3)]
         public string FactionTag { get; set; }
 
-        [ProtoMember]
+        [ProtoMember(4)]
         public int Points { get; set; }
     }
 }

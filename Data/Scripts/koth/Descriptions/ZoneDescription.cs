@@ -14,60 +14,60 @@ namespace KingOfTheHill.Descriptions
     {
         public readonly static Guid StorageGuid = new Guid("B7AF750E-68E3-4826-BD0E-A75BF36BA3E5");
 
-        [ProtoMember]
+        [ProtoMember(1)]
         public long GridId { get; set; }
 
-        [ProtoMember]
+        [ProtoMember(2)]
         public long BlockId { get; set; }
 
-        [ProtoMember]
+        [ProtoMember(3)]
         public float Progress { get; set; }
 
-        [ProtoMember]
+        [ProtoMember(4)]
         public float ProgressWhenComplete { get; set; }
 
-        [ProtoMember]
+        [ProtoMember(5)]
         public long ControlledBy { get; set; } // faction currently capturing the point
 
-        [ProtoMember]
+        [ProtoMember(6)]
         public float Radius { get; set; }
 
-        [ProtoMember]
+        [ProtoMember(7)]
         public int ActivateOnPlayerCount { get; set; } // Number activators present before activation
-        [ProtoMember]
+        [ProtoMember(8)]
         public bool ActivateOnCharacter { get; set; } // Counts characters as activators
-        [ProtoMember]
+        [ProtoMember(9)]
         public bool ActivateOnSmallGrid { get; set; } // Counts piloted small grids as activators
-        [ProtoMember]
+        [ProtoMember(10)]
         public bool ActivateOnLargeGrid { get; set; } // Counts piloted large grids as activators
-        [ProtoMember]
+        [ProtoMember(11)]
         public bool ActivateOnUnpoweredGrid { get; set; } // Counts non powered grid as activators
-        [ProtoMember]
+        [ProtoMember(12)]
         public bool IgnoreCopilot { get; set; }  // Counts each crew member as an activator
 
-        [ProtoMember]
+        [ProtoMember(13)]
         public bool AwardPointsAsCredits { get; set; }
 
-        [ProtoMember]
+        [ProtoMember(14)]
         public int PointsRemovedOnDeath { get; set; }
 
-        [ProtoMember]
+        [ProtoMember(15)]
         public int MinSmallGridBlockCount { get; set; }
-        [ProtoMember]
+        [ProtoMember(16)]
         public int MinLargeGridBlockCount { get; set; }
 
-        [ProtoMember]
+        [ProtoMember(17)]
         public float IdleDrainRate { get; set; }
-        [ProtoMember]
+        [ProtoMember(18)]
         public float ContestedDrainRate { get; set; }
 
-        [ProtoMember]
+        [ProtoMember(19)]
         public bool FlatProgressRate { get; set; }
 
-        [ProtoMember]
+        [ProtoMember(20)]
         public float ActiveProgressRate { get; set; } // the flat progress rate applied
 
-        [ProtoMember]
+        [ProtoMember(21)]
         public float Opacity { get; set; }
 
         public void Save(IMyEntity ent)

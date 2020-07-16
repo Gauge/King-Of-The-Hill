@@ -6,7 +6,7 @@ namespace KingOfTheHill.Descriptions
     [ProtoContract]
     public class Update
     {
-        [ProtoMember]
+        [ProtoMember(1)]
         public List<ZoneDescription> Zones { get; set; } = new List<ZoneDescription>();
     }
 }
