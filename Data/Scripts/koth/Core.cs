@@ -7,334 +7,250 @@ using VRage.Game.Components;
 using VRage.Game.ModAPI;
 using VRage.Utils;
 using KingOfTheHill.Descriptions;
-using ModNetworkAPI;
+using SENetworkAPI;
+using System;
 
 namespace KingOfTheHill
 {
-    [MySessionComponentDescriptor(MyUpdateOrder.AfterSimulation)]
-    public class Core : MySessionComponentBase
-    {
-        public const string Keyword = "/koth";
-        public const string DisplayName = "KotH";
-        public const ushort ComId = 42511;
+	[MySessionComponentDescriptor(MyUpdateOrder.AfterSimulation)]
+	public class Core : MySessionComponentBase
+	{
+		public const string Keyword = "/koth";
+		public const string DisplayName = "KotH";
+		public const ushort ComId = 42511;
 
-        private static Dictionary<long, ScoreDescription> Scores = new Dictionary<long, ScoreDescription>(); // faction, score
-        private static List<ZoneBlock> Zones = new List<ZoneBlock>();
+		private static Dictionary<long, ScoreDescription> Scores = new Dictionary<long, ScoreDescription>(); // faction, score
+		private static List<ZoneBlock> Zones = new List<ZoneBlock>();
 
-        private bool IsInitilaized = false;
-        private int interval = 0;
+		private bool IsInitilaized = false;
+		private int interval = 0;
 
-        private NetworkAPI Network => NetworkAPI.Instance;
-
-
-        public static void RegisterZone(ZoneBlock zone)
-        {
-            Zones.Add(zone);
-        }
-
-        public static void UnRegisterZone(ZoneBlock zone)
-        {
-            Zones.Remove(zone);
-        }
-
-        public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
-        {
-            Tools.Log(MyLogSeverity.Info, "Initializing");
-
-            if (!NetworkAPI.IsInitialized)
-            {
-                NetworkAPI.Init(ComId, DisplayName, Keyword);
-            }
-
-            Network.RegisterChatCommand(string.Empty, Chat_Help);
-            Network.RegisterChatCommand("help", Chat_Help);
-
-            if (Network.NetworkType == NetworkTypes.Client)
-            {
-                Network.RegisterChatCommand("score", (args) => Network.SendCommand("score"));
-                Network.RegisterChatCommand("save", (args) => Network.SendCommand("save"));
-                Network.RegisterChatCommand("force-load", (args) => Network.SendCommand("force-load"));
-
-                Network.RegisterNetworkCommand("update", ClientCallback_Update);
-                Network.RegisterNetworkCommand("score", ClientCallback_Score);
-                Network.RegisterNetworkCommand("sync_zone", ClientCallback_SyncZone);
-
-            }
-            else
-            {
-                IsInitilaized = true;
-                ZoneBlock.OnAwardPoints += AwardPoints;
-                ZoneBlock.OnPlayerDied += PlayerDied;
-
-                Network.RegisterChatCommand("score", (args) => { MyAPIGateway.Utilities.ShowMissionScreen(Network.ModName, "King of the Hill", "", FormatScores()); });
-                Network.RegisterChatCommand("save", (args) => { ServerCallback_Save(MyAPIGateway.Session.Player.SteamUserId, "save", null); });
-                Network.RegisterChatCommand("force-load", (args) => { ServerCallback_ForceLoad(MyAPIGateway.Session.Player.SteamUserId, "force_load", null); });
-
-                Network.RegisterNetworkCommand("update", ServerCallback_Update);
-                Network.RegisterNetworkCommand("sync_zone", ServerCallback_SyncZone);
-                Network.RegisterNetworkCommand("score", ServerCallback_Score);
-                Network.RegisterNetworkCommand("save", ServerCallback_Save);
-                Network.RegisterNetworkCommand("force_load", ServerCallback_ForceLoad);
-            }
+		private NetworkAPI Network => NetworkAPI.Instance;
 
 
-            ZoneBlock.OnUpdate += ZoneUpdate;
-        }
+		public static void RegisterZone(ZoneBlock zone)
+		{
+			Zones.Add(zone);
+		}
 
-        public override void LoadData()
-        {
-            if (!MyAPIGateway.Multiplayer.IsServer) return;
+		public static void UnRegisterZone(ZoneBlock zone)
+		{
+			Zones.Remove(zone);
+		}
 
-            Scores.Clear();
-            Session session = Descriptions.Session.Load();
-            foreach (ScoreDescription score in session.Scores)
-            {
-                Scores.Add(score.FactionId, score);
-            }
-        }
+		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
+		{
+			Tools.Log(MyLogSeverity.Info, "Initializing");
 
-        public override void SaveData()
-        {
-            if (!MyAPIGateway.Multiplayer.IsServer) return;
+			if (!NetworkAPI.IsInitialized)
+			{
+				NetworkAPI.Init(ComId, DisplayName, Keyword);
+			}
 
-            Session session = new Session();
-            foreach (ScoreDescription score in Scores.Values)
-            {
-                session.Scores.Add(score);
-            }
-            Descriptions.Session.Save(session);
+			Network.RegisterChatCommand(string.Empty, Chat_Help);
+			Network.RegisterChatCommand("help", Chat_Help);
 
-            foreach (ZoneBlock b in Zones)
-            {
-                b.Data.Save(b.Entity);
-            }
-        }
+			if (!MyAPIGateway.Session.IsServer)
+			{
+				Network.RegisterChatCommand("score", (args) => Network.SendCommand("score"));
+				Network.RegisterChatCommand("save", (args) => Network.SendCommand("save"));
+				Network.RegisterChatCommand("force-load", (args) => Network.SendCommand("force-load"));
 
-        public override void UpdateAfterSimulation()
-        {
-            if (!IsInitilaized)
-            {
-                if (interval == 300)
-                {
-                    Network.SendCommand("update");
-                    IsInitilaized = true;
-                }
-                interval++;
-            }
-        }
+				Network.RegisterNetworkCommand("score", ClientCallback_Score);
+			}
+			else
+			{
+				IsInitilaized = true;
+				ZoneBlock.OnAwardPoints += AwardPoints;
+				ZoneBlock.OnPlayerDied += PlayerDied;
 
-        protected override void UnloadData()
-        {
-            Network.Close();
-            ZoneBlock.OnUpdate -= ZoneUpdate;
+				Network.RegisterChatCommand("score", (args) => { MyAPIGateway.Utilities.ShowMissionScreen(Network.ModName, "King of the Hill", "", FormatScores()); });
+				Network.RegisterChatCommand("save", (args) => { ServerCallback_Save(MyAPIGateway.Session.Player.SteamUserId, "save", null, DateTime.Now); });
+				Network.RegisterChatCommand("force-load", (args) => { ServerCallback_ForceLoad(MyAPIGateway.Session.Player.SteamUserId, "force_load", null, DateTime.Now); });
 
-            ZoneBlock.OnAwardPoints -= AwardPoints;
-            ZoneBlock.OnPlayerDied -= PlayerDied;
-        }
+				Network.RegisterNetworkCommand("score", ServerCallback_Score);
+				Network.RegisterNetworkCommand("save", ServerCallback_Save);
+				Network.RegisterNetworkCommand("force_load", ServerCallback_ForceLoad);
+			}
+		}
 
-        private void AwardPoints(ZoneBlock zone, IMyFaction faction, int enemies)
-        {
-            if (MyAPIGateway.Multiplayer.IsServer)
-            {
-                long facId = faction.FactionId;
-                if (!Scores.Keys.Contains(faction.FactionId))
-                {
-                    Scores.Add(facId, new ScoreDescription()
-                    {
-                        FactionId = facId,
-                        FactionName = faction.Name,
-                        FactionTag = faction.Tag,
-                        Points = 1
-                    });
-                }
+		public override void LoadData()
+		{
+			if (!MyAPIGateway.Multiplayer.IsServer)
+				return;
 
-                int total = GetTotalScore();
-                int current = Scores[facId].Points;
+			Scores.Clear();
+			Session session = Descriptions.Session.Load();
+			foreach (ScoreDescription score in session.Scores)
+			{
+				Scores.Add(score.FactionId, score);
+			}
+		}
 
-                int points = (int)(((float)(total - current) / (float)total) * 5 * enemies) + 1 + enemies;
+		public override void SaveData()
+		{
+			if (!MyAPIGateway.Multiplayer.IsServer)
+				return;
 
-                Scores[facId].Points += points;
+			Session session = new Session();
+			foreach (ScoreDescription score in Scores.Values)
+			{
+				session.Scores.Add(score);
+			}
+			Descriptions.Session.Save(session);
 
-                string message = "";
-                if (zone.Data.AwardPointsAsCredits)
-                {
-                    faction.RequestChangeBalance(points * 1000);
-                    message = $"{faction.Name} Scored {points} Points! ({points * 1000} credits)";
-                }
-                else
-                {
-                    message = $"{faction.Name} Scored {points} Points!";
-                }
+			foreach (ZoneBlock b in Zones)
+			{
+				b.Save();
+			}
+		}
 
-                SaveData();
+		protected override void UnloadData()
+		{
+			Network.Close();
+			ZoneBlock.OnAwardPoints -= AwardPoints;
+			ZoneBlock.OnPlayerDied -= PlayerDied;
+		}
 
-                MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, $"KotH: {message}");
-                Network.SendCommand("update", message: message, data: MyAPIGateway.Utilities.SerializeToBinary(GenerateUpdate()));
-            }
-        }
+		private void AwardPoints(ZoneBlock zone, IMyFaction faction, int enemies)
+		{
+			if (MyAPIGateway.Multiplayer.IsServer)
+			{
+				long facId = faction.FactionId;
+				if (!Scores.Keys.Contains(faction.FactionId))
+				{
+					Scores.Add(facId, new ScoreDescription() {
+						FactionId = facId,
+						FactionName = faction.Name,
+						FactionTag = faction.Tag,
+						Points = 1
+					});
+				}
 
-        private void PlayerDied(ZoneBlock zone, IMyPlayer player, IMyFaction faction)
-        {
-            if (zone.Data.PointsRemovedOnDeath == 0) return;
+				int total = GetTotalScore();
+				int current = Scores[facId].Points;
 
-            if (MyAPIGateway.Multiplayer.IsServer)
-            {
-                long facId = faction.FactionId;
-                if (!Scores.Keys.Contains(faction.FactionId))
-                {
-                    Scores.Add(facId, new ScoreDescription()
-                    {
-                        FactionId = facId,
-                        FactionName = faction.Name,
-                        FactionTag = faction.Tag,
-                        Points = 1
-                    });
-                }
+				int points = (int)(((float)(total - current) / (float)total) * 5f * enemies) + 1 + enemies;
 
-                Scores[facId].Points -= zone.Data.PointsRemovedOnDeath;
+				Scores[facId].Points += points;
 
-                if (Scores[facId].Points < 1)
-                {
-                    Scores[facId].Points = 1;
-                }
+				string message = "";
+				if (zone.AwardPointsAsCredits.Value)
+				{
+					faction.RequestChangeBalance(points * zone.CreditsPerPoint.Value);
+					message = $"{faction.Name} Scored {points} Points! ({points * zone.CreditsPerPoint.Value} credits)";
+				}
+				else
+				{
+					message = $"{faction.Name} Scored {points} Points!";
+				}
 
-                string message = $"[{faction.Tag}] {player.DisplayName} Died: -{zone.Data.PointsRemovedOnDeath} Points";
+				SaveData();
 
-                MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, $"KotH: {message}");
-                Network.SendCommand("update", message: message, data: MyAPIGateway.Utilities.SerializeToBinary(GenerateUpdate()));
-            }
-        }
+				MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, $"KotH: {message}");
+				Network.Say(message);
+			}
+		}
 
-        private void ZoneUpdate(ZoneBlock zone)
-        {
-            SaveData();
-            Network.SendCommand("sync_zone", data: MyAPIGateway.Utilities.SerializeToBinary(zone.Data));
-        }
+		private void PlayerDied(ZoneBlock zone, IMyPlayer player, IMyFaction faction)
+		{
+			if (zone.PointsRemovedOnDeath.Value == 0)
+				return;
 
-        private Update GenerateUpdate()
-        {
-            Update value = new Update();
+			if (MyAPIGateway.Multiplayer.IsServer)
+			{
+				long facId = faction.FactionId;
+				if (!Scores.Keys.Contains(faction.FactionId))
+				{
+					Scores.Add(facId, new ScoreDescription() {
+						FactionId = facId,
+						FactionName = faction.Name,
+						FactionTag = faction.Tag,
+						Points = 1
+					});
+				}
 
-            foreach (ZoneBlock block in Zones)
-            {
-                value.Zones.Add(block.Data);
-            }
+				Scores[facId].Points -= zone.PointsRemovedOnDeath.Value;
 
-            return value;
-        }
+				if (Scores[facId].Points < 1)
+				{
+					Scores[facId].Points = 1;
+				}
 
-        private int GetTotalScore()
-        {
-            int total = 0;
-            foreach (ScoreDescription s in Scores.Values) total += s.Points;
-            return total;
-        }
+				string message = $"[{faction.Tag}] {player.DisplayName} Died: -{zone.PointsRemovedOnDeath.Value} Points";
 
-        private string FormatScores()
-        {
-            StringBuilder formatedScores = new StringBuilder();
-            foreach (ScoreDescription score in Scores.Values)
-            {
-                formatedScores.AppendLine($"[{score.FactionTag}] {score.FactionName}: {score.Points}");
-            }
-            return formatedScores.ToString();
-        }
+				MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, $"KotH: {message}");
+				Network.Say(message);
+			}
+		}
 
-        private void RequestServerUpdate()
-        {
-            if (Network.NetworkType == NetworkTypes.Client)
-            {
-                Network.SendCommand("update");
-            }
-        }
+		private int GetTotalScore()
+		{
+			int total = 0;
+			foreach (ScoreDescription s in Scores.Values)
+				total += s.Points;
+			return total;
+		}
 
-        #region Network Communication
+		private string FormatScores()
+		{
+			StringBuilder formatedScores = new StringBuilder();
+			foreach (ScoreDescription score in Scores.Values)
+			{
+				formatedScores.AppendLine($"[{score.FactionTag}] {score.FactionName}: {score.Points}");
+			}
+			return formatedScores.ToString();
+		}
 
-        private void Chat_Help(string args)
-        {
-            MyAPIGateway.Utilities.ShowMessage(Network.ModName, "\nSCORE: Displays the current score\nSAVE: saves the current state to disk");
-        }
+		#region Network Communication
 
-        private void ClientCallback_Update(ulong steamId, string commandString, byte[] data)
-        {
-            Update content = MyAPIGateway.Utilities.SerializeFromBinary<Update>(data);
+		private void Chat_Help(string args)
+		{
+			MyAPIGateway.Utilities.ShowMessage(Network.ModName, "\nSCORE: Displays the current score\nSAVE: saves the current state to disk");
+		}
 
-            foreach (ZoneDescription zd in content.Zones)
-            {
-                ZoneBlock zone = Zones.Find(z => z.Entity.EntityId == zd.BlockId && z.ModBlock.CubeGrid.EntityId == zd.GridId);
+		private void ClientCallback_Score(ulong steamId, string commandString, byte[] data, DateTime timestamp)
+		{
+			MyAPIGateway.Utilities.ShowMissionScreen(DisplayName, "King of the Hill", "", ASCIIEncoding.ASCII.GetString(data));
+		}
 
-                if (zone != null)
-                {
-                    zone.SetZone(zd);
-                }
-            }
-        }
+		private void ServerCallback_Score(ulong steamId, string commandString, byte[] data, DateTime timestamp)
+		{
+			StringBuilder formatedScores = new StringBuilder();
+			foreach (ScoreDescription score in Scores.Values)
+			{
+				formatedScores.AppendLine($"[{score.FactionTag}] {score.FactionName}: {score.Points}");
+			}
 
-        private void ClientCallback_Score(ulong steamId, string commandString, byte[] data)
-        {
-            MyAPIGateway.Utilities.ShowMissionScreen(DisplayName, "King of the Hill", "", ASCIIEncoding.ASCII.GetString(data));
-        }
+			Network.SendCommand("score", data: ASCIIEncoding.ASCII.GetBytes(FormatScores()), steamId: steamId);
+		}
 
-        private void ClientCallback_SyncZone(ulong steamId, string commandString, byte[] data)
-        {
-            ZoneDescription zd = MyAPIGateway.Utilities.SerializeFromBinary<ZoneDescription>(data);
+		private void ServerCallback_Save(ulong steamId, string commandString, byte[] data, DateTime timestamp)
+		{
+			if (Tools.IsAllowedSpecialOperations(steamId))
+			{
+				SaveData();
+				Network.SendCommand("blank_message", "KotH Saved.", steamId: steamId);
+			}
+			else
+			{
+				Network.SendCommand("blank_message", "Requires admin rights", steamId: steamId);
+			}
+		}
 
-            ZoneBlock zone = Zones.Find(z => z.Entity.EntityId == zd.BlockId && z.ModBlock.CubeGrid.EntityId == zd.GridId);
-            zone.SetZone(zd);
-        }
+		private void ServerCallback_ForceLoad(ulong steamId, string commandString, byte[] data, DateTime timestamp)
+		{
+			if (Tools.IsAllowedSpecialOperations(steamId))
+			{
+				LoadData();
+				Network.SendCommand("blank_message", "Scores force loaded", steamId: steamId);
+			}
+			else
+			{
+				Network.SendCommand("blank_message", "Requires admin rights", steamId: steamId);
+			}
+		}
 
-        private void ServerCallback_Update(ulong steamId, string commandString, byte[] data)
-        {
-            Network.SendCommand("update", data: MyAPIGateway.Utilities.SerializeToBinary(GenerateUpdate()), steamId: steamId);
-        }
-
-        private void ServerCallback_SyncZone(ulong steamId, string commandString, byte[] data)
-        {
-            ZoneDescription zd = MyAPIGateway.Utilities.SerializeFromBinary<ZoneDescription>(data);
-
-            ZoneBlock zone = Zones.Find(z => z.Entity.EntityId == zd.BlockId && z.ModBlock.CubeGrid.EntityId == zd.GridId);
-            zone.SetZone(zd);
-
-            Network.SendCommand("sync_zone", data: MyAPIGateway.Utilities.SerializeToBinary(zone.Data));
-        }
-
-        private void ServerCallback_Score(ulong steamId, string commandString, byte[] data)
-        {
-            StringBuilder formatedScores = new StringBuilder();
-            foreach (ScoreDescription score in Scores.Values)
-            {
-                formatedScores.AppendLine($"[{score.FactionTag}] {score.FactionName}: {score.Points}");
-            }
-
-            Network.SendCommand("score", data: ASCIIEncoding.ASCII.GetBytes(FormatScores()), steamId: steamId);
-        }
-
-        private void ServerCallback_Save(ulong steamId, string commandString, byte[] data)
-        {
-            if (Tools.IsAllowedSpecialOperations(steamId))
-            {
-                SaveData();
-                Network.SendCommand("blank_message", "KotH Saved.", steamId: steamId);
-            }
-            else
-            {
-                Network.SendCommand("blank_message", "Requires admin rights", steamId: steamId);
-            }
-        }
-
-        private void ServerCallback_ForceLoad(ulong steamId, string commandString, byte[] data)
-        {
-            if (Tools.IsAllowedSpecialOperations(steamId))
-            {
-                LoadData();
-                Network.SendCommand("blank_message", "Scores force loaded", steamId: steamId);
-            }
-            else
-            {
-                Network.SendCommand("blank_message", "Requires admin rights", steamId: steamId);
-            }
-        }
-
-        #endregion
-    }
+		#endregion
+	}
 }

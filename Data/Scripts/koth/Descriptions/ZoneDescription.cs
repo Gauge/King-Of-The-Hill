@@ -49,25 +49,40 @@ namespace KingOfTheHill.Descriptions
         public bool AwardPointsAsCredits { get; set; }
 
         [ProtoMember(14)]
-        public int PointsRemovedOnDeath { get; set; }
+        public int CreditsPerPoint { get; set; }
 
         [ProtoMember(15)]
-        public int MinSmallGridBlockCount { get; set; }
+        public int PointsRemovedOnDeath { get; set; }
+
         [ProtoMember(16)]
+        public int MinSmallGridBlockCount { get; set; }
+        [ProtoMember(17)]
         public int MinLargeGridBlockCount { get; set; }
 
-        [ProtoMember(17)]
-        public float IdleDrainRate { get; set; }
         [ProtoMember(18)]
+        public float IdleDrainRate { get; set; }
+        [ProtoMember(19)]
         public float ContestedDrainRate { get; set; }
 
-        [ProtoMember(19)]
+        [ProtoMember(20)]
         public bool FlatProgressRate { get; set; }
 
-        [ProtoMember(20)]
+        [ProtoMember(21)]
         public float ActiveProgressRate { get; set; } // the flat progress rate applied
 
-        [ProtoMember(21)]
+        [ProtoMember(22)]
+        public bool AutomaticActivation { get; set; }
+
+        [ProtoMember(23)]
+        public int ActivationDay { get; set; }
+
+        [ProtoMember(24)]
+        public int ActivationStartTime { get; set; }
+
+        [ProtoMember(25)]
+        public int ActivationEndTime { get; set; }
+
+        [ProtoMember(30)]
         public float Opacity { get; set; }
 
         public void Save(IMyEntity ent)
@@ -120,10 +135,18 @@ namespace KingOfTheHill.Descriptions
                 ActivateOnLargeGrid = true,
                 ActivateOnUnpoweredGrid = false,
                 IgnoreCopilot = false,
+                AwardPointsAsCredits = false,
+                CreditsPerPoint = 1000,
                 PointsRemovedOnDeath = 0,
                 MinSmallGridBlockCount = 50,
                 MinLargeGridBlockCount = 25,
                 ActivateOnPlayerCount = 1,
+
+                AutomaticActivation = false,
+                ActivationDay = 3,
+                ActivationStartTime = 120,
+                ActivationEndTime = 1200,
+
                 Opacity = 150
             };
         }

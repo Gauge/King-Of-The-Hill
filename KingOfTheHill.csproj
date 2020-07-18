@@ -150,6 +150,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Data\Scripts\koth\SENetworkAPI\Client.cs" />
+    <Compile Include="Data\Scripts\koth\SENetworkAPI\Command.cs" />
+    <Compile Include="Data\Scripts\koth\SENetworkAPI\NetSync.cs" />
+    <Compile Include="Data\Scripts\koth\SENetworkAPI\Network.cs" />
+    <Compile Include="Data\Scripts\koth\SENetworkAPI\NetworkComponent.cs" />
+    <Compile Include="Data\Scripts\koth\SENetworkAPI\Server.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Data\Scripts\koth\Constants.cs" />
     <Compile Include="Data\Scripts\koth\Core.cs" />
@@ -157,10 +163,6 @@
     <Compile Include="Data\Scripts\koth\Descriptions\Session.cs" />
     <Compile Include="Data\Scripts\koth\Descriptions\Update.cs" />
     <Compile Include="Data\Scripts\koth\Descriptions\ZoneDescription.cs" />
-    <Compile Include="Data\Scripts\koth\ModNetworkAPI\Client.cs" />
-    <Compile Include="Data\Scripts\koth\ModNetworkAPI\Command.cs" />
-    <Compile Include="Data\Scripts\koth\ModNetworkAPI\Network.cs" />
-    <Compile Include="Data\Scripts\koth\ModNetworkAPI\Server.cs" />
     <Compile Include="Data\Scripts\koth\Tools.cs" />
     <Compile Include="Data\Scripts\koth\ZoneBlock.cs" />
   </ItemGroup>
