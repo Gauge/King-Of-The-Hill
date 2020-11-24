@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.ModAPI;
+using VRage.Game.ObjectBuilders.ComponentSystem;
 using VRage.ModAPI;
 using VRage.ObjectBuilders;
 using VRage.Utils;
@@ -133,6 +134,12 @@ namespace KingOfTheHill
 			Opacity = new NetSync<float>(this, TransferType.Both, desc.ActiveProgressRate);
 
 			Core.RegisterZone(this);
+		}
+
+		public override MyObjectBuilder_ComponentBase Serialize(bool copy = false)
+		{
+			Save();
+			return base.Serialize(copy);
 		}
 
 		public override void Close()
