@@ -45,9 +45,11 @@ namespace SENetworkAPI
 
 			if (UsingTextCommands)
 			{
+				MyAPIGateway.Utilities.MessageEntered -= HandleChatInput;
 				MyAPIGateway.Utilities.MessageEntered += HandleChatInput;
 			}
 
+			MyAPIGateway.Multiplayer.UnregisterMessageHandler(ComId, HandleIncomingPacket);
 			MyAPIGateway.Multiplayer.RegisterMessageHandler(ComId, HandleIncomingPacket);
 
 			MyLog.Default.Info($"[NetworkAPI] Initialized. Type: {GetType().Name} ComId: {ComId} Name: {ModName} Keyword: {Keyword}");
@@ -78,7 +80,7 @@ namespace SENetworkAPI
 			}
 			else
 			{
-				if (MyAPIGateway.Utilities.IsDedicated)
+				if (!MyAPIGateway.Utilities.IsDedicated)
 				{
 					MyAPIGateway.Utilities.ShowMessage(ModName, "Command not recognized.");
 				}
@@ -97,7 +99,8 @@ namespace SENetworkAPI
 
 				if (LogNetworkTraffic)
 				{
-					MyLog.Default.Info($"[NetworkAPI] Received{(cmd.IsCompressed ? " Compressed" : "")} Transmission: From: {cmd.SteamId} Type: {((cmd.IsProperty) ? "Property" : $"Command ID: {cmd.CommandString}")}");
+					MyLog.Default.Info($"[NetworkAPI] ----- TRANSMISSION RECIEVED -----");
+					MyLog.Default.Info($"[NetworkAPI] Type: {((cmd.IsProperty) ? "Property" : $"Command ID: {cmd.CommandString}")}, {(cmd.IsCompressed ? "Compressed, " : "")}From: {cmd.SteamId} ");
 				}
 
 				if (cmd.IsCompressed)
@@ -129,24 +132,28 @@ namespace SENetworkAPI
 						}
 					}
 
-					if (cmd.CommandString == null)
+					if (cmd.CommandString != null)
 					{
-						return;
-					}
+						OnCommandRecived?.Invoke(cmd.SteamId, cmd.CommandString, cmd.Data, new DateTime(cmd.Timestamp));
 
-					OnCommandRecived?.Invoke(cmd.SteamId, cmd.CommandString, cmd.Data, new DateTime(cmd.Timestamp));
+						string command = cmd.CommandString.Split(' ')[0];
 
-					string command = cmd.CommandString.Split(' ')[0];
-
-					if (NetworkCommands.ContainsKey(command))
-					{
-						NetworkCommands[command]?.Invoke(cmd.SteamId, cmd.CommandString, cmd.Data, new DateTime(cmd.Timestamp));
+						if (NetworkCommands.ContainsKey(command))
+						{
+							NetworkCommands[command]?.Invoke(cmd.SteamId, cmd.CommandString, cmd.Data, new DateTime(cmd.Timestamp));
+						}
 					}
 				}
+
+				if (LogNetworkTraffic)
+				{
+					MyLog.Default.Info($"[NetworkAPI] ----- END -----");
+				}
+
 			}
 			catch (Exception e)
 			{
-				MyLog.Default.Error($"[NetworkAPI] Failed to unpack message:\n{e.ToString()}");
+				MyLog.Default.Error($"[NetworkAPI] Failure in message processing:\n{e.ToString()}");
 			}
 		}
 
@@ -270,6 +277,7 @@ namespace SENetworkAPI
 		/// <summary>
 		/// Unregisters listeners
 		/// </summary>
+		[ObsoleteAttribute("This property is obsolete. Close is no longer required", false)]
 		public void Close()
 		{
 			MyLog.Default.Info($"[NetworkAPI] Unregistering communication stream: {ComId}");
@@ -285,6 +293,7 @@ namespace SENetworkAPI
 		/// <summary>
 		/// Calls Instance.Close()
 		/// </summary>
+		[ObsoleteAttribute("This property is obsolete. Dispose is no longer required", false)]
 		public static void Dispose()
 		{
 			if (IsInitialized)

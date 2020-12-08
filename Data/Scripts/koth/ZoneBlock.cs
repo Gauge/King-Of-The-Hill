@@ -21,7 +21,7 @@ namespace KingOfTheHill
 
 
 	[MyEntityComponentDescriptor(typeof(MyObjectBuilder_Beacon), false, "ZoneBlock")]
-	public class ZoneBlock : MyNetworkGameLogicComponent
+	public class ZoneBlock : MyGameLogicComponent
 	{
 		public ZoneStates State { get; private set; } = ZoneStates.Idle;
 

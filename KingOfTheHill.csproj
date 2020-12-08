@@ -154,7 +154,6 @@
     <Compile Include="Data\Scripts\koth\SENetworkAPI\Command.cs" />
     <Compile Include="Data\Scripts\koth\SENetworkAPI\NetSync.cs" />
     <Compile Include="Data\Scripts\koth\SENetworkAPI\Network.cs" />
-    <Compile Include="Data\Scripts\koth\SENetworkAPI\NetworkComponent.cs" />
     <Compile Include="Data\Scripts\koth\SENetworkAPI\Server.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Data\Scripts\koth\Constants.cs" />
