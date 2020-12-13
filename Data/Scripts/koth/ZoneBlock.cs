@@ -55,6 +55,7 @@ namespace KingOfTheHill
 		public NetSync<bool> ActivateOnUnpoweredGrid;
 		public NetSync<bool> IgnoreCopilot;
 
+		public NetSync<bool> AwardPointsToAllActiveFactions;
 		public NetSync<bool> AwardPointsAsCredits;
 		public NetSync<int> CreditsPerPoint;
 		public NetSync<int> PointsRemovedOnDeath;
@@ -118,6 +119,7 @@ namespace KingOfTheHill
 			ActivateOnLargeGrid = new NetSync<bool>(this, TransferType.Both, desc.ActivateOnLargeGrid);
 			ActivateOnUnpoweredGrid = new NetSync<bool>(this, TransferType.Both, desc.ActivateOnUnpoweredGrid);
 			IgnoreCopilot = new NetSync<bool>(this, TransferType.Both, desc.IgnoreCopilot);
+			AwardPointsToAllActiveFactions = new NetSync<bool>(this, TransferType.Both, desc.AwardPointsToAllActiveFactions);
 			AwardPointsAsCredits = new NetSync<bool>(this, TransferType.Both, desc.AwardPointsAsCredits);
 			CreditsPerPoint = new NetSync<int>(this, TransferType.Both, desc.CreditsPerPoint);
 			PointsRemovedOnDeath = new NetSync<int>(this, TransferType.Both, desc.PointsRemovedOnDeath);
@@ -164,6 +166,7 @@ namespace KingOfTheHill
 			desc.ActivateOnLargeGrid = ActivateOnLargeGrid.Value;
 			desc.ActivateOnUnpoweredGrid = ActivateOnUnpoweredGrid.Value;
 			desc.IgnoreCopilot = IgnoreCopilot.Value;
+			desc.AwardPointsToAllActiveFactions = AwardPointsToAllActiveFactions.Value;
 			desc.AwardPointsAsCredits = AwardPointsAsCredits.Value;
 			desc.CreditsPerPoint = CreditsPerPoint.Value;
 			desc.PointsRemovedOnDeath = PointsRemovedOnDeath.Value;
@@ -200,7 +203,7 @@ namespace KingOfTheHill
 				{
 					DateTime today = DateTime.UtcNow;
 
-					if (ActivationDay.Value != 0 && (ActivationDay.Value-1) != (int)today.DayOfWeek)
+					if (ActivationDay.Value != 0 && (ActivationDay.Value - 1) != (int)today.DayOfWeek)
 					{
 						int hours = (int)Math.Floor(ActivationStartTime.Value / 60d);
 						int minutes = ActivationStartTime.Value % 60;
@@ -272,6 +275,7 @@ namespace KingOfTheHill
 
 					if (Vector3D.Distance(p.GetPosition(), location) > Radius.Value)
 						continue;
+
 					playersInZone.Add(p);
 
 					if (p.Character != null)
@@ -391,7 +395,7 @@ namespace KingOfTheHill
 				lastState = State;
 
 				float speed = 0;
-				if (isContested)
+				if (isContested && !AwardPointsToAllActiveFactions.Value)
 				{
 					State = ZoneStates.Contested;
 					color = Color.Orange;
@@ -414,7 +418,7 @@ namespace KingOfTheHill
 				{
 					State = ZoneStates.Active;
 					color = Color.White;
-					speed = GetProgress(validatedPlayers.Count);
+					speed = (AwardPointsToAllActiveFactions.Value) ? 1f : GetProgress(validatedPlayers.Count);
 					Progress.SetValue(Progress.Value + speed);
 					ControlledByFaction = nominatedFaction;
 
@@ -443,7 +447,18 @@ namespace KingOfTheHill
 
 				if (Progress.Value >= ProgressWhenComplete.Value)
 				{
-					OnAwardPoints.Invoke(this, ControlledByFaction, ActiveEnemiesPerFaction[ControlledByFaction.FactionId]);
+					if (AwardPointsToAllActiveFactions.Value)
+					{
+						foreach (IMyFaction faction in factionsInZone)
+						{
+							OnAwardPoints.Invoke(this, faction, ActiveEnemiesPerFaction[faction.FactionId]);
+						}
+					}
+					else
+					{
+						OnAwardPoints.Invoke(this, ControlledByFaction, ActiveEnemiesPerFaction[ControlledByFaction.FactionId]);
+					}
+
 					ResetActiveEnemies();
 					Progress.Value = 0;
 				}
@@ -503,7 +518,7 @@ namespace KingOfTheHill
 							specialColor = "Blue";
 							break;
 					}
-					MyAPIGateway.Utilities.ShowNotification($"Allies: {allies}  Neutral: {neutral}  Enemies: {enemies} - {State.ToString().ToUpper()}: {((Progress.Value / ProgressWhenComplete.Value) * 100).ToString("n0")}% Speed: {speed * 100}% {(ControlledByFaction != null ? $"Controlled By: {ControlledByFaction.Tag}" : "")}", 1, specialColor);
+					MyAPIGateway.Utilities.ShowNotification($"Allies: {allies}  Neutral: {neutral}  Enemies: {enemies} - {State.ToString().ToUpper()}: {((Progress.Value / ProgressWhenComplete.Value) * 100).ToString("n0")}% Speed: {(speed * 100).ToString("n0")}% {(!AwardPointsToAllActiveFactions.Value ? (ControlledByFaction != null ? $"Controlled By: {ControlledByFaction.Tag}" : "") : "")}", 1, specialColor);
 				}
 
 				if (!MyAPIGateway.Utilities.IsDedicated)
@@ -679,6 +694,16 @@ namespace KingOfTheHill
 				Checkbox.Getter = (block) => IgnoreCopilot.Value;
 				Checkbox.Title = MyStringId.GetOrCompute("Ignore Copilot");
 				Checkbox.Tooltip = MyStringId.GetOrCompute("Will count a copiloted grid as a single person");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
+
+				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_AwardPointsToAllActiveFactions");
+				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Checkbox.Setter = (block, value) => { AwardPointsToAllActiveFactions.Value = value; UpdateControls(); };
+				Checkbox.Getter = (block) => AwardPointsToAllActiveFactions.Value;
+				Checkbox.Title = MyStringId.GetOrCompute("Award Points To all Active Factions");
+				Checkbox.Tooltip = MyStringId.GetOrCompute("All faction in zone get points on cap. No contesting zone. Zone caps at a set rate regardless of player count");
 				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
 
 				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_AwardPointsAsCredits");

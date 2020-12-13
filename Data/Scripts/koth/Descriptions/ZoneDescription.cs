@@ -82,6 +82,9 @@ namespace KingOfTheHill.Descriptions
         [ProtoMember(25)]
         public int ActivationEndTime { get; set; }
 
+        [ProtoMember(26)]
+        public bool AwardPointsToAllActiveFactions { get; set; }
+
         [ProtoMember(30)]
         public float Opacity { get; set; }
 

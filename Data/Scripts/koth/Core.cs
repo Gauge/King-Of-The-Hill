@@ -22,11 +22,7 @@ namespace KingOfTheHill
 		private static Dictionary<long, ScoreDescription> Scores = new Dictionary<long, ScoreDescription>(); // faction, score
 		private static List<ZoneBlock> Zones = new List<ZoneBlock>();
 
-		private bool IsInitilaized = false;
-		private int interval = 0;
-
 		private NetworkAPI Network => NetworkAPI.Instance;
-
 
 		public static void RegisterZone(ZoneBlock zone)
 		{
@@ -60,7 +56,6 @@ namespace KingOfTheHill
 			}
 			else
 			{
-				IsInitilaized = true;
 				ZoneBlock.OnAwardPoints += AwardPoints;
 				ZoneBlock.OnPlayerDied += PlayerDied;
 
@@ -107,49 +102,48 @@ namespace KingOfTheHill
 
 		protected override void UnloadData()
 		{
-			Network.Close();
 			ZoneBlock.OnAwardPoints -= AwardPoints;
 			ZoneBlock.OnPlayerDied -= PlayerDied;
 		}
 
 		private void AwardPoints(ZoneBlock zone, IMyFaction faction, int enemies)
 		{
-			if (MyAPIGateway.Multiplayer.IsServer)
+			if (!MyAPIGateway.Multiplayer.IsServer)
+				return;
+
+			long facId = faction.FactionId;
+			if (!Scores.Keys.Contains(faction.FactionId))
 			{
-				long facId = faction.FactionId;
-				if (!Scores.Keys.Contains(faction.FactionId))
-				{
-					Scores.Add(facId, new ScoreDescription() {
-						FactionId = facId,
-						FactionName = faction.Name,
-						FactionTag = faction.Tag,
-						Points = 1
-					});
-				}
-
-				int total = GetTotalScore();
-				int current = Scores[facId].Points;
-
-				int points = (int)(((float)(total - current) / (float)total) * 5f * enemies) + 1 + enemies;
-
-				Scores[facId].Points += points;
-
-				string message = "";
-				if (zone.AwardPointsAsCredits.Value)
-				{
-					faction.RequestChangeBalance(points * zone.CreditsPerPoint.Value);
-					message = $"{faction.Name} Scored {points} Points! ({points * zone.CreditsPerPoint.Value} credits)";
-				}
-				else
-				{
-					message = $"{faction.Name} Scored {points} Points!";
-				}
-
-				SaveData();
-
-				MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, $"KotH: {message}");
-				Network.Say(message);
+				Scores.Add(facId, new ScoreDescription() {
+					FactionId = facId,
+					FactionName = faction.Name,
+					FactionTag = faction.Tag,
+					Points = 1
+				});
 			}
+
+			int total = GetTotalScore();
+			int current = Scores[facId].Points;
+
+			int points = (int)(((float)(total - current) / (float)total) * 5f * enemies) + 1 + enemies;
+
+			Scores[facId].Points += points;
+
+			string message = "";
+			if (zone.AwardPointsAsCredits.Value)
+			{
+				faction.RequestChangeBalance(points * zone.CreditsPerPoint.Value);
+				message = $"{faction.Name} Scored {points} Points! ({points * zone.CreditsPerPoint.Value} credits)";
+			}
+			else
+			{
+				message = $"{faction.Name} Scored {points} Points!";
+			}
+
+			SaveData();
+
+			MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, $"KotH: {message}");
+			Network.Say(message);
 		}
 
 		private void PlayerDied(ZoneBlock zone, IMyPlayer player, IMyFaction faction)
