@@ -85,6 +85,9 @@ namespace KingOfTheHill.Descriptions
         [ProtoMember(26)]
         public bool AwardPointsToAllActiveFactions { get; set; }
 
+        [ProtoMember(27)]
+        public bool EncampmentMode { get; set; }
+
         [ProtoMember(30)]
         public float Opacity { get; set; }
 

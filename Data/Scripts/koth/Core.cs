@@ -164,14 +164,17 @@ namespace KingOfTheHill
 					});
 				}
 
-				Scores[facId].Points -= zone.PointsRemovedOnDeath.Value;
-
-				if (Scores[facId].Points < 1)
+				int original = Scores[facId].Points;
+				if (original - zone.PointsRemovedOnDeath.Value < 1)
 				{
 					Scores[facId].Points = 1;
 				}
+				else
+				{
+					Scores[facId].Points = original - zone.PointsRemovedOnDeath.Value;
+				}
 
-				string message = $"[{faction.Tag}] {player.DisplayName} Died: -{zone.PointsRemovedOnDeath.Value} Points";
+				string message = $"[{faction.Tag}] {player.DisplayName} Died: -{Scores[facId].Points-original} Points";
 
 				MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, $"KotH: {message}");
 				Network.Say(message);
