@@ -81,8 +81,6 @@ namespace KingOfTheHill
 
 		public NetSync<float> Opacity;
 
-		//public List<IMyCubeGrid> StaticGridsInZone = new List<IMyCubeGrid>();
-
 		private Dictionary<long, int> ActiveEnemiesPerFaction = new Dictionary<long, int>();
 		private bool IsInitialized = false;
 		private ZoneStates lastState = ZoneStates.Idle;
@@ -337,7 +335,7 @@ namespace KingOfTheHill
 
 				List<IMyFaction> activeFactions = new List<IMyFaction>();
 
-			foreach (IMyCubeGrid staticGrid in StaticGridsInZone)
+			foreach (IMyCubeGrid staticGrid in Core.StaticGrids)
 			{
 				if (!EncampmentMode_VerifyGrid(staticGrid as MyCubeGrid))
 					continue;
@@ -376,7 +374,9 @@ namespace KingOfTheHill
 		{
 			if (!grid.IsPowered ||
 				grid.BlocksCount < MinLargeGridBlockCount.Value ||
-				grid.BigOwners.Count == 0)
+				grid.BigOwners.Count == 0 ||
+				grid == ModBlock.CubeGrid ||
+				Vector3D.Distance(grid.WorldMatrix.Translation, Entity.GetPosition()) > Radius.Value)
 			{
 				return false;
 			}
@@ -694,8 +694,6 @@ namespace KingOfTheHill
 
 			ActiveEnemiesPerFaction = newDict;
 		}
-
-
 
 		private void CreateControls()
 		{
