@@ -9,6 +9,7 @@ using VRage.Utils;
 using KingOfTheHill.Descriptions;
 using SENetworkAPI;
 using System;
+using VRage.ModAPI;
 
 namespace KingOfTheHill
 {
@@ -22,6 +23,8 @@ namespace KingOfTheHill
 		private static Dictionary<long, ScoreDescription> Scores = new Dictionary<long, ScoreDescription>(); // faction, score
 		private static List<ZoneBlock> Zones = new List<ZoneBlock>();
 
+		public static List<IMyCubeGrid> StaticGrids = new List<IMyCubeGrid>();
+
 		private NetworkAPI Network => NetworkAPI.Instance;
 
 		public static void RegisterZone(ZoneBlock zone)
@@ -32,6 +35,27 @@ namespace KingOfTheHill
 		public static void UnRegisterZone(ZoneBlock zone)
 		{
 			Zones.Remove(zone);
+		}
+
+		private void EntityAdded(IMyEntity e)
+		{
+			IMyCubeGrid g = e as IMyCubeGrid;
+			if (g == null || !g.IsStatic)
+				return;
+
+			StaticGrids.Add(g);
+		}
+
+		private void EntityRemoved(IMyEntity e)
+		{
+			IMyCubeGrid g = e as IMyCubeGrid;
+			if (g == null || !g.IsStatic)
+				return;
+
+			if (StaticGrids.Contains(g))
+			{
+				StaticGrids.Remove(g);
+			}
 		}
 
 		public override void Init(MyObjectBuilder_SessionComponent sessionComponent)
@@ -67,6 +91,9 @@ namespace KingOfTheHill
 				Network.RegisterNetworkCommand("save", ServerCallback_Save);
 				Network.RegisterNetworkCommand("force_load", ServerCallback_ForceLoad);
 			}
+
+			MyAPIGateway.Entities.OnEntityAdd += EntityAdded;
+			MyAPIGateway.Entities.OnEntityRemove += EntityRemoved;
 		}
 
 		public override void LoadData()

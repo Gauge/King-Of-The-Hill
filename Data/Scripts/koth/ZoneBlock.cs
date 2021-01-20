@@ -81,7 +81,7 @@ namespace KingOfTheHill
 
 		public NetSync<float> Opacity;
 
-		public List<IMyCubeGrid> StaticGridsInZone = new List<IMyCubeGrid>();
+		//public List<IMyCubeGrid> StaticGridsInZone = new List<IMyCubeGrid>();
 
 		private Dictionary<long, int> ActiveEnemiesPerFaction = new Dictionary<long, int>();
 		private bool IsInitialized = false;
@@ -107,9 +107,6 @@ namespace KingOfTheHill
 					desc = temp;
 				}
 			}
-
-			MyAPIGateway.Entities.OnEntityAdd += EntityAdded;
-			MyAPIGateway.Entities.OnEntityRemove += EntityRemoved;
 
 			Progress = new NetSync<float>(this, TransferType.ServerToClient, desc.Progress);
 			ProgressWhenComplete = new NetSync<float>(this, TransferType.Both, desc.ProgressWhenComplete);
@@ -698,27 +695,7 @@ namespace KingOfTheHill
 			ActiveEnemiesPerFaction = newDict;
 		}
 
-		private void EntityAdded(IMyEntity e)
-		{
-			IMyCubeGrid g = e as IMyCubeGrid;
-			if (g == null || !g.IsStatic ||
-				Vector3D.Distance(g.GetPosition(), Entity.GetPosition()) > Radius.Value)
-				return;
 
-			StaticGridsInZone.Add(g);
-		}
-
-		private void EntityRemoved(IMyEntity e)
-		{
-			IMyCubeGrid g = e as IMyCubeGrid;
-			if (g == null || !g.IsStatic)
-				return;
-
-			if (StaticGridsInZone.Contains(g))
-			{
-				StaticGridsInZone.Remove(g);
-			}
-		}
 
 		private void CreateControls()
 		{
