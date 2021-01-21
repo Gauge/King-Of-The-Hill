@@ -88,6 +88,9 @@ namespace KingOfTheHill.Descriptions
         [ProtoMember(27)]
         public bool EncampmentMode { get; set; }
 
+        [ProtoMember(27)]
+        public int PointsOnCap { get; set; }
+
         [ProtoMember(30)]
         public float Opacity { get; set; }
 
@@ -141,6 +144,8 @@ namespace KingOfTheHill.Descriptions
                 ActivateOnLargeGrid = true,
                 ActivateOnUnpoweredGrid = false,
                 IgnoreCopilot = false,
+
+                PointsOnCap = 0,
                 AwardPointsAsCredits = false,
                 CreditsPerPoint = 1000,
                 PointsRemovedOnDeath = 0,

@@ -61,6 +61,7 @@ namespace KingOfTheHill
 		public NetSync<bool> ActivateOnUnpoweredGrid;
 		public NetSync<bool> IgnoreCopilot;
 
+		public NetSync<int> PointsOnCap;
 		public NetSync<bool> AwardPointsToAllActiveFactions;
 		public NetSync<bool> AwardPointsAsCredits;
 		public NetSync<int> CreditsPerPoint;
@@ -117,6 +118,7 @@ namespace KingOfTheHill
 			ActivateOnLargeGrid = new NetSync<bool>(this, TransferType.Both, desc.ActivateOnLargeGrid);
 			ActivateOnUnpoweredGrid = new NetSync<bool>(this, TransferType.Both, desc.ActivateOnUnpoweredGrid);
 			IgnoreCopilot = new NetSync<bool>(this, TransferType.Both, desc.IgnoreCopilot);
+			PointsOnCap = new NetSync<int>(this, TransferType.Both, desc.PointsOnCap);
 			AwardPointsToAllActiveFactions = new NetSync<bool>(this, TransferType.Both, desc.AwardPointsToAllActiveFactions);
 			AwardPointsAsCredits = new NetSync<bool>(this, TransferType.Both, desc.AwardPointsAsCredits);
 			CreditsPerPoint = new NetSync<int>(this, TransferType.Both, desc.CreditsPerPoint);
@@ -333,8 +335,7 @@ namespace KingOfTheHill
 			}
 
 
-				List<IMyFaction> activeFactions = new List<IMyFaction>();
-
+			List<IMyFaction> activeFactions = new List<IMyFaction>();	
 			foreach (IMyCubeGrid staticGrid in Core.StaticGrids)
 			{
 				if (!EncampmentMode_VerifyGrid(staticGrid as MyCubeGrid))
@@ -832,6 +833,27 @@ namespace KingOfTheHill
 				Checkbox.Title = MyStringId.GetOrCompute("Ignore Copilot");
 				Checkbox.Tooltip = MyStringId.GetOrCompute("Will count a copiloted grid as a single person");
 				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
+
+				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_PointsOnCap");
+				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Slider.Setter = (block, value) => { CreditsPerPoint.Value = (int)value; };
+				Slider.Getter = (block) => CreditsPerPoint.Value;
+				Slider.Writer = (block, value) => {
+					if (PointsOnCap.Value == 0)
+					{
+						value.Append($"Standard");
+					}
+					else
+					{
+						value.Append($"{PointsOnCap.Value}");
+					}
+				};
+				Slider.Title = MyStringId.GetOrCompute("Points On Cap");
+				Slider.Tooltip = MyStringId.GetOrCompute("The number of points alotted on capture");
+				Slider.SetLimits(1, 10000);
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
 
 				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_AwardPointsToAllActiveFactions");
 				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && !EncampmentMode.Value; };

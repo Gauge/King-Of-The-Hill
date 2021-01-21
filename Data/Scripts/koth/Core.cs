@@ -152,7 +152,15 @@ namespace KingOfTheHill
 			int total = GetTotalScore();
 			int current = Scores[facId].Points;
 
-			int points = (int)(((float)(total - current) / (float)total) * 5f * enemies) + 1 + enemies;
+			int points;
+			if (zone.PointsOnCap.Value == 0)
+			{
+				points = (int)(((float)(total - current) / (float)total) * 5f * enemies) + 1 + enemies;
+			}
+			else
+			{
+				points = zone.PointsOnCap.Value;
+			}
 
 			Scores[facId].Points += points;
 
