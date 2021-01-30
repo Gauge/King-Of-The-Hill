@@ -404,7 +404,7 @@ namespace KingOfTheHill
 		private void EncampmentMode_Hud(List<IMyFaction> factions)
 		{
 			IMyPlayer localPlayer = MyAPIGateway.Session.LocalHumanPlayer;
-			if (localPlayer != null)
+			if (localPlayer != null && Vector3D.Distance(localPlayer.GetPosition(), Entity.GetPosition()) < Radius.Value)
 			{
 				IMyFaction f = MyAPIGateway.Session.Factions.TryGetPlayerFaction(localPlayer.IdentityId);
 
