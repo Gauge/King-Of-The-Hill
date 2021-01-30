@@ -373,8 +373,7 @@ namespace KingOfTheHill
 
 		private bool EncampmentMode_VerifyGrid(MyCubeGrid grid)
 		{
-			if (!grid.IsPowered ||
-				grid.BlocksCount < MinLargeGridBlockCount.Value ||
+			if (grid.BlocksCount < MinLargeGridBlockCount.Value ||
 				grid.BigOwners.Count == 0 ||
 				grid == ModBlock.CubeGrid ||
 				Vector3D.Distance(grid.WorldMatrix.Translation, Entity.GetPosition()) > Radius.Value)
@@ -382,7 +381,24 @@ namespace KingOfTheHill
 				return false;
 			}
 
-			return true;
+			bool flag = false;
+			List<IMySlimBlock> trash = new List<IMySlimBlock>();
+			(grid as IMyCubeGrid).GetBlocks(trash, (s) => 
+			{
+				IMyPowerProducer p = s.FatBlock as IMyPowerProducer;
+				if (p != null)
+				{
+					if (p.CurrentOutput > 0)
+					{
+						flag = true; // detected power
+					}
+
+				}
+
+				return false;
+			});
+
+			return flag;
 		}
 
 		private void EncampmentMode_Hud(List<IMyFaction> factions)
