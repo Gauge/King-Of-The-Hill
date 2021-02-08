@@ -150,6 +150,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Data\Scripts\koth\Descriptions\PlanetDescription.cs" />
     <Compile Include="Data\Scripts\koth\SENetworkAPI\Client.cs" />
     <Compile Include="Data\Scripts\koth\SENetworkAPI\Command.cs" />
     <Compile Include="Data\Scripts\koth\SENetworkAPI\NetSync.cs" />
@@ -167,10 +168,15 @@
     <Compile Include="Data\Scripts\koth\ZoneBlock.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Data\BlockCategories.sbc" />
+    <None Include="Data\Blueprints.sbc" />
+    <None Include="Data\BlueprintsClasses.sbc" />
+    <None Include="Data\Components.sbc" />
     <None Include="Data\CubeBlocks.sbc">
       <SubType>Designer</SubType>
     </None>
     <None Include="Data\EntityComponents.sbc" />
+    <None Include="Data\EntityContainers.sbc" />
     <None Include="Data\TransparentMaterials.sbc" />
   </ItemGroup>
   <ItemGroup />

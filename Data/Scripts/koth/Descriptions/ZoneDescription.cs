@@ -94,6 +94,63 @@ namespace KingOfTheHill.Descriptions
         [ProtoMember(30)]
         public float Opacity { get; set; }
 
+        [ProtoMember(31)]
+        public int PointsForPrize { get; set; }
+
+        [ProtoMember(32)]
+        public int PrizeAmountComponent { get; set; }
+
+        [ProtoMember(33)]
+        public int PrizeAmountOre { get; set; }
+
+        [ProtoMember(34)]
+        public int PrizeAmountIngot { get; set; }
+
+        [ProtoMember(35)]
+        public bool UseComponentReward { get; set; }
+
+        [ProtoMember(36)]
+        public bool UseOreReward { get; set; }
+
+        [ProtoMember(37)]
+        public bool UseIngotReward { get; set; }
+
+        [ProtoMember(39)]
+        public string PrizeComponentSubtypeId { get; set; }
+
+        [ProtoMember(40)]
+        public string PrizeOreSubtypeId { get; set; }
+
+        [ProtoMember(41)]
+        public string PrizeIngotSubtypeId { get; set; }
+
+        [ProtoMember(42)]
+        public string SelectedComponentString { get; set; }
+
+        [ProtoMember(43)]
+        public bool AdvancedComponentSelection { get; set; }
+
+        [ProtoMember(44)]
+        public string SelectedOreString { get; set; }
+
+        [ProtoMember(45)]
+        public bool AdvancedOreSelection { get; set; }
+
+        [ProtoMember(46)]
+        public string SelectedIngotString { get; set; }
+
+        [ProtoMember(47)]
+        public bool AdvancedIngotSelection { get; set; }
+
+        [ProtoMember(48)]
+        public bool IsLocationNamed { get; set; }
+
+        [ProtoMember(49)]
+        public bool SpawnIntoPrizeBox { get; set; }
+
+        [ProtoMember(50)]
+        public int PointsEarnedSincePrize { get; set; }
+
         public void Save(IMyEntity ent)
         {
             MyModStorageComponentBase storage = GetStorage(ent);
@@ -127,8 +184,9 @@ namespace KingOfTheHill.Descriptions
 
         public static ZoneDescription GetDefaultSettings()
         {
-            return new ZoneDescription()
-            {
+            return new ZoneDescription() {
+                
+                EncampmentMode = false,
                 IdleDrainRate = 3,
                 ContestedDrainRate = 0,
                 FlatProgressRate = false,
@@ -146,6 +204,7 @@ namespace KingOfTheHill.Descriptions
                 IgnoreCopilot = false,
 
                 PointsOnCap = 0,
+                AwardPointsToAllActiveFactions = false,
                 AwardPointsAsCredits = false,
                 CreditsPerPoint = 1000,
                 PointsRemovedOnDeath = 0,
@@ -158,7 +217,29 @@ namespace KingOfTheHill.Descriptions
                 ActivationStartTime = 120,
                 ActivationEndTime = 1200,
 
-                Opacity = 150
+                Opacity = 150,
+
+                IsLocationNamed = false,
+
+                UseComponentReward = true,
+                UseOreReward = false,
+                UseIngotReward = false,
+                PointsForPrize = 1,
+                PrizeAmountComponent = 1,
+                PrizeAmountOre = 1,
+                PrizeAmountIngot = 1,
+                PrizeComponentSubtypeId = "subtypeId",
+                PrizeOreSubtypeId = "subtypeId",
+                PrizeIngotSubtypeId = "subtypeId",
+                AdvancedComponentSelection = false,
+                SelectedComponentString = "",
+                SelectedOreString = "",
+                AdvancedOreSelection = false,
+                SelectedIngotString = "",
+                AdvancedIngotSelection = false,
+                SpawnIntoPrizeBox = true,
+
+                PointsEarnedSincePrize = 0,
             };
         }
 

@@ -8,22 +8,12 @@ using VRage.Utils;
 namespace KingOfTheHill.Descriptions
 {
     [ProtoContract]
-    public class WorldDescription 
-    { 
-        [ProtoMember(1)]
-        public string Name { get; set; }
-
-        [ProtoMember(2)]
-        public List<ScoreDescription> Scores { get; set; } = new List<ScoreDescription>();
-    }
-
-    [ProtoContract]
     public class Session
     {
         public const string Filename = "Scores.data";
 
         [ProtoMember(1)]
-        public List<ScoreDescription> Scores { get; set; } = new List<ScoreDescription>();
+        public List<PlanetDescription> PlanetScores { get; set; } = new List<PlanetDescription>();
 
         public static Session Load()
         {

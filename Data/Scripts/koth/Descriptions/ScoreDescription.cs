@@ -16,5 +16,11 @@ namespace KingOfTheHill.Descriptions
 
         [ProtoMember(4)]
         public int Points { get; set; }
+
+        [ProtoMember(5)]
+        public string PlanetId { get; set; }
+
+        [ProtoMember(6)]
+        public string GridName { get; set; }
     }
 }

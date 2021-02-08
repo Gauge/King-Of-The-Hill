@@ -7,9 +7,6 @@ namespace KingOfTheHill
 
     public class Tools
     {
-
-        public static long ModMessageId = 999888777;
-
         public static void Log(MyLogSeverity level, string message)
         {
             MyLog.Default.Log(level, $"[KingOfTheHill] {message}");

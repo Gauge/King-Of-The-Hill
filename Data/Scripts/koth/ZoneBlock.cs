@@ -1,11 +1,13 @@
 ﻿using KingOfTheHill.Descriptions;
 using Sandbox.Common.ObjectBuilders;
 using Sandbox.Game.Entities;
+using Sandbox.Game.EntityComponents;
 using Sandbox.ModAPI;
 using Sandbox.ModAPI.Interfaces.Terminal;
 using SENetworkAPI;
 using System;
 using System.Collections.Generic;
+using System.Text;
 using VRage.Game;
 using VRage.Game.Components;
 using VRage.Game.ModAPI;
@@ -24,10 +26,11 @@ namespace KingOfTheHill
 	[MyEntityComponentDescriptor(typeof(MyObjectBuilder_Beacon), false, "ZoneBlock")]
 	public class ZoneBlock : MyGameLogicComponent
 	{
-		public static event Action<ZoneBlock, IMyFaction, int> OnAwardPoints = delegate { };
+		public static event Action<ZoneBlock, IMyFaction, int, bool> OnAwardPoints = delegate { };
 		public static event Action<ZoneBlock, IMyPlayer, IMyFaction> OnPlayerDied = delegate { };
 
 		public static readonly Color[] ZoneStateColorLookup = new Color[] { Color.White, Color.Gray, Color.Orange };
+		private static readonly MyDefinitionId Electricity = MyResourceDistributorComponent.ElectricityId;
 
 		public ZoneStates State { get; private set; } = ZoneStates.Idle;
 		public IMyBeacon ModBlock { get; private set; }
@@ -39,11 +42,7 @@ namespace KingOfTheHill
 			set
 			{
 				controlledByFaction = value;
-
-				if (ControlledBy != null)
-				{
-					ControlledBy.Value = (value == null) ? 0 : value.FactionId;
-				}
+				ControlledBy.Value = (value == null) ? 0 : value.FactionId;
 			}
 
 		}
@@ -82,6 +81,33 @@ namespace KingOfTheHill
 
 		public NetSync<float> Opacity;
 
+		public NetSync<bool> IsLocationNamed;
+		public NetSync<int> PointsForPrize;
+
+		public NetSync<bool> UseComponentReward;
+		public NetSync<bool> UseOreReward;
+		public NetSync<bool> UseIngotReward;
+
+		public NetSync<int> PrizeAmountComponent;
+		public NetSync<int> PrizeAmountOre;
+		public NetSync<int> PrizeAmountIngot;
+
+		public NetSync<bool> AdvancedComponentSelection;
+		public NetSync<bool> AdvancedOreSelection;
+		public NetSync<bool> AdvancedIngotSelection;
+
+		public NetSync<string> PrizeComponentSubtypeId;
+		public NetSync<string> PrizeOreSubtypeId;
+		public NetSync<string> PrizeIngotSubtypeId;
+
+		public NetSync<string> SelectedComponentString;
+		public NetSync<string> SelectedOreString;
+		public NetSync<string> SelectedIngotString;
+
+		public NetSync<bool> SpawnIntoPrizeBox;
+
+		public int PointsEarnedSincePrize;
+
 		private Dictionary<long, int> ActiveEnemiesPerFaction = new Dictionary<long, int>();
 		private bool IsInitialized = false;
 		private ZoneStates lastState = ZoneStates.Idle;
@@ -106,6 +132,7 @@ namespace KingOfTheHill
 					desc = temp;
 				}
 			}
+
 
 			Progress = new NetSync<float>(this, TransferType.ServerToClient, desc.Progress);
 			ProgressWhenComplete = new NetSync<float>(this, TransferType.Both, desc.ProgressWhenComplete);
@@ -134,6 +161,26 @@ namespace KingOfTheHill
 			ActivationStartTime = new NetSync<int>(this, TransferType.Both, desc.ActivationStartTime);
 			ActivationEndTime = new NetSync<int>(this, TransferType.Both, desc.ActivationEndTime);
 			Opacity = new NetSync<float>(this, TransferType.Both, desc.ActiveProgressRate);
+			IsLocationNamed = new NetSync<bool>(this, TransferType.Both, desc.IsLocationNamed);
+			PointsForPrize = new NetSync<int>(this, TransferType.Both, desc.PointsForPrize);
+			UseComponentReward = new NetSync<bool>(this, TransferType.Both, desc.UseComponentReward);
+			UseOreReward = new NetSync<bool>(this, TransferType.Both, desc.UseOreReward);
+			UseIngotReward = new NetSync<bool>(this, TransferType.Both, desc.UseIngotReward);
+			PrizeAmountComponent = new NetSync<int>(this, TransferType.Both, desc.PrizeAmountComponent);
+			PrizeAmountOre = new NetSync<int>(this, TransferType.Both, desc.PrizeAmountOre);
+			PrizeAmountIngot = new NetSync<int>(this, TransferType.Both, desc.PrizeAmountIngot);
+			AdvancedComponentSelection = new NetSync<bool>(this, TransferType.Both, desc.AdvancedComponentSelection);
+			AdvancedOreSelection = new NetSync<bool>(this, TransferType.Both, desc.AdvancedOreSelection);
+			AdvancedIngotSelection = new NetSync<bool>(this, TransferType.Both, desc.AdvancedIngotSelection);
+			PrizeComponentSubtypeId = new NetSync<string>(this, TransferType.Both, desc.PrizeComponentSubtypeId);
+			PrizeOreSubtypeId = new NetSync<string>(this, TransferType.Both, desc.PrizeOreSubtypeId);
+			PrizeIngotSubtypeId = new NetSync<string>(this, TransferType.Both, desc.PrizeIngotSubtypeId);
+			SelectedComponentString = new NetSync<string>(this, TransferType.Both, desc.SelectedComponentString);
+			SelectedOreString = new NetSync<string>(this, TransferType.Both, desc.SelectedOreString);
+			SelectedIngotString = new NetSync<string>(this, TransferType.Both, desc.SelectedIngotString);
+			SpawnIntoPrizeBox = new NetSync<bool>(this, TransferType.Both, desc.SpawnIntoPrizeBox);
+			PointsEarnedSincePrize = desc.PointsEarnedSincePrize;
+
 
 			Core.RegisterZone(this);
 		}
@@ -167,6 +214,7 @@ namespace KingOfTheHill
 			desc.ActivateOnLargeGrid = ActivateOnLargeGrid.Value;
 			desc.ActivateOnUnpoweredGrid = ActivateOnUnpoweredGrid.Value;
 			desc.IgnoreCopilot = IgnoreCopilot.Value;
+			desc.PointsOnCap = PointsOnCap.Value;
 			desc.AwardPointsToAllActiveFactions = AwardPointsToAllActiveFactions.Value;
 			desc.AwardPointsAsCredits = AwardPointsAsCredits.Value;
 			desc.CreditsPerPoint = CreditsPerPoint.Value;
@@ -182,8 +230,33 @@ namespace KingOfTheHill
 			desc.ActivationStartTime = ActivationStartTime.Value;
 			desc.ActivationEndTime = ActivationEndTime.Value;
 			desc.Opacity = Opacity.Value;
+			desc.IsLocationNamed = IsLocationNamed.Value;
+			desc.PointsForPrize = PointsForPrize.Value;
+			desc.UseComponentReward = UseComponentReward.Value;
+			desc.UseOreReward = UseOreReward.Value;
+			desc.UseIngotReward = UseIngotReward.Value;
+			desc.PrizeAmountComponent = PrizeAmountComponent.Value;
+			desc.PrizeAmountOre = PrizeAmountOre.Value;
+			desc.PrizeAmountIngot = PrizeAmountIngot.Value;
+			desc.AdvancedComponentSelection = AdvancedComponentSelection.Value;
+			desc.AdvancedOreSelection = AdvancedOreSelection.Value;
+			desc.AdvancedIngotSelection = AdvancedIngotSelection.Value;
+			desc.PrizeComponentSubtypeId = PrizeComponentSubtypeId.Value;
+			desc.PrizeOreSubtypeId = PrizeOreSubtypeId.Value;
+			desc.PrizeIngotSubtypeId = PrizeIngotSubtypeId.Value;
+			desc.SelectedComponentString = SelectedComponentString.Value;
+			desc.SelectedOreString = SelectedOreString.Value;
+			desc.SelectedIngotString = SelectedIngotString.Value;
+			desc.SpawnIntoPrizeBox = SpawnIntoPrizeBox.Value;
+			desc.PointsEarnedSincePrize = PointsEarnedSincePrize;
 
 			desc.Save(Entity);
+		}
+
+		public string GetClosestPlanet()
+		{
+			MyPlanet planet = MyGamePruningStructure.GetClosestPlanet(Entity.GetPosition());
+			return (planet == null) ? "N/A" : planet.Name;
 		}
 
 		public override void UpdateBeforeSimulation()
@@ -244,10 +317,10 @@ namespace KingOfTheHill
 					ModBlock.CustomName = newText;
 				}
 
-				if (lastState != State)
-				{
-					MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, $"KotH: {ModBlock.CustomName}");
-				}
+				//if (lastState != State)
+				//{
+				//	MyAPIGateway.Utilities.SendModMessage(Tools.ModMessageId, $"KotH: {ModBlock.CustomName}");
+				//}
 			}
 
 			if (!MyAPIGateway.Utilities.IsDedicated)
@@ -360,9 +433,11 @@ namespace KingOfTheHill
 			bool complete = UpdateProgress(state, 1f);
 			if (complete)
 			{
+				bool header = true;
 				foreach (IMyFaction faction in activeFactions)
 				{
-					OnAwardPoints.Invoke(this, faction, 5); // the active enemy value should be more than 1
+					OnAwardPoints.Invoke(this, faction, 2, header); // the active enemy value should be more than 1
+					header = false;
 				}
 
 				ResetProgress();
@@ -382,21 +457,14 @@ namespace KingOfTheHill
 			}
 
 			bool flag = false;
-			List<IMySlimBlock> trash = new List<IMySlimBlock>();
-			(grid as IMyCubeGrid).GetBlocks(trash, (s) => 
+			foreach (IMySlimBlock slim in grid.CubeBlocks)
 			{
-				IMyPowerProducer p = s.FatBlock as IMyPowerProducer;
-				if (p != null)
+				if (slim.FatBlock is IMyPowerProducer && (slim.FatBlock as IMyPowerProducer).CurrentOutput > 0)
 				{
-					if (p.CurrentOutput > 0)
-					{
-						flag = true; // detected power
-					}
-
+					flag = true;
+					break;
 				}
-
-				return false;
-			});
+			}
 
 			return flag;
 		}
@@ -410,7 +478,7 @@ namespace KingOfTheHill
 
 				string specialColor = (factions.Count == 0) ? "Gray" : "White";
 
-				MyAPIGateway.Utilities.ShowNotification($"Active Factions {factions.Count} - <{(f != null && factions.Contains(f) ? "Encamped" : "NOT Encamped")}> - {State.ToString().ToUpper()}: {((Progress.Value / ProgressWhenComplete.Value) * 100).ToString("n0")}%", 1, specialColor);
+				MyAPIGateway.Utilities.ShowNotification($"Active Factions {factions.Count} - {(f != null && factions.Contains(f) ? "Encamped" : "NOT Encamped")} - {State.ToString().ToUpper()}: {((Progress.Value / ProgressWhenComplete.Value) * 100).ToString("n0")}%", 1, specialColor);
 			}
 		}
 
@@ -458,7 +526,7 @@ namespace KingOfTheHill
 
 				if (!factionsInZone.Contains(f))
 				{
-					if (!isContested) // only check for contested status if not contested
+					if (!AwardPointsToAllActiveFactions.Value && !isContested) // only check for contested status if not contested
 					{
 						foreach (IMyFaction otherFaction in factionsInZone)
 						{
@@ -470,7 +538,6 @@ namespace KingOfTheHill
 					}
 
 					factionsInZone.Add(f);
-
 				}
 
 				// update grid status
@@ -483,7 +550,7 @@ namespace KingOfTheHill
 				}
 			}
 
-			if (ControlledByFaction == null)
+			if (!factionsInZone.Contains(ControlledByFaction))
 			{
 				ControlledByFaction = nominatedFaction;
 			}
@@ -532,7 +599,20 @@ namespace KingOfTheHill
 			bool complete = UpdateProgress(state, speed);
 			if (complete)
 			{
-				OnAwardPoints.Invoke(this, ControlledByFaction, ActiveEnemiesPerFaction[ControlledByFaction.FactionId]);
+				if (AwardPointsToAllActiveFactions.Value)
+				{
+					bool header = true;
+					foreach (IMyFaction fac in factionsInZone)
+					{
+						OnAwardPoints(this, fac, ActiveEnemiesPerFaction[fac.FactionId], header);
+						header = false;
+					}
+				}
+				else
+				{
+					OnAwardPoints.Invoke(this, ControlledByFaction, ActiveEnemiesPerFaction[ControlledByFaction.FactionId], true);
+				}
+
 				ResetProgress();
 			}
 
@@ -557,9 +637,30 @@ namespace KingOfTheHill
 				MyCubeGrid grid = controlledBlock.CubeGrid as MyCubeGrid;
 
 				if (grid.IsStatic ||
-					!ActivateOnUnpoweredGrid.Value && !grid.IsPowered ||
 					IgnoreCopilot.Value && registeredGrids.Contains(grid)) // if a grid is already registered this is a copilot
 					return false;
+
+				if (!ActivateOnUnpoweredGrid.Value)
+				{
+					MyResourceSinkComponent powerSink;
+					if (!controlledBlock.Components.TryGet(out powerSink))
+					{
+						powerSink = new MyResourceSinkComponent();
+						MyResourceSinkInfo resourceInfo = new MyResourceSinkInfo() {
+							ResourceTypeId = Electricity
+						};
+						powerSink.AddType(ref resourceInfo);
+						controlledBlock.Components.Add(powerSink);
+
+						powerSink.SetRequiredInputByType(Electricity, 0);
+						powerSink.SetMaxRequiredInputByType(Electricity, 0.000002f);
+						powerSink.SetRequiredInputFuncByType(Electricity, () => { return 0; });
+					}
+
+					if (!powerSink.IsPowerAvailable(Electricity, 0.000001f))
+						return false;
+				}
+
 
 				if (grid.GridSizeEnum == MyCubeSize.Large)
 				{
@@ -581,16 +682,13 @@ namespace KingOfTheHill
 		private void StandardMode_Hud(List<IMyPlayer> playersInZone, float speed)
 		{
 			IMyPlayer localPlayer = MyAPIGateway.Session.LocalHumanPlayer;
-			if (localPlayer != null && playersInZone.Contains(localPlayer))
+			if (localPlayer != null && Vector3D.Distance(localPlayer.GetPosition(), Entity.GetPosition()) <= Radius.Value)
 			{
 				int allies = 0;
 				int enemies = 0;
 				int neutral = 0;
 				foreach (IMyPlayer p in playersInZone)
 				{
-					if (!ActivateOnCharacter.Value && !(p.Controller.ControlledEntity is IMyCubeBlock))
-						continue;
-
 					switch (localPlayer.GetRelationTo(p.IdentityId))
 					{
 						case MyRelationsBetweenPlayerAndBlock.Owner:
@@ -719,6 +817,21 @@ namespace KingOfTheHill
 				IMyTerminalControlSlider Slider = null;
 				IMyTerminalControlCheckbox Checkbox = null;
 				IMyTerminalControlOnOffSwitch onoff = null;
+				IMyTerminalControlTextbox textbox = null;
+				IMyTerminalControlSeparator separator = null;
+				IMyTerminalControlLabel label = null;
+
+				label = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlLabel, IMyBeacon>("zone_KothGeneralSettingsLabel");
+				label.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				label.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				label.Label = MyStringId.GetOrCompute("Koth General Settings");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(label);
+
+				separator = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSeparator, IMyBeacon>("zone_KothGeneralSeparator");
+				separator.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				separator.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(separator);
 
 				onoff = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlOnOffSwitch, IMyBeacon>("Zone_EncampmentMode");
 				onoff.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
@@ -728,6 +841,7 @@ namespace KingOfTheHill
 				onoff.OffText = MyStringId.GetOrCompute("Off");
 
 				onoff.Setter = (block, value) => {
+					ActivateOnCharacter.Value = false;
 					EncampmentMode.Value = value;
 					UpdateControls();
 				};
@@ -737,67 +851,8 @@ namespace KingOfTheHill
 				onoff.Tooltip = MyStringId.GetOrCompute("All factions with powered static grids in the zone are awarded points");
 				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(onoff);
 
-				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_Radius");
-				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
-				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
-
-				Slider.Setter = (block, value) => { Radius.Value = value; };
-				Slider.Getter = (block) => Radius.Value;
-				Slider.Writer = (block, value) => value.Append($"{Math.Round(Radius.Value, 0)}m");
-				Slider.Title = MyStringId.GetOrCompute("Radius");
-				Slider.Tooltip = MyStringId.GetOrCompute("Capture Zone Radius");
-				Slider.SetLimits(Constants.MinRadius, Constants.MaxRadius);
-				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
-
-				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_ProgressWhenComplete");
-				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
-				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
-
-				Slider.Setter = (block, value) => { ProgressWhenComplete.Value = value; };
-				Slider.Getter = (block) => ProgressWhenComplete.Value;
-				Slider.Writer = (block, value) => value.Append($"{TimeSpan.FromMilliseconds((ProgressWhenComplete.Value / 60) * 1000).ToString("g").Split('.')[0]}");
-				Slider.Title = MyStringId.GetOrCompute("Capture Time");
-				Slider.Tooltip = MyStringId.GetOrCompute("The base capture time");
-				Slider.SetLimits(Constants.MinCaptureTime, Constants.MaxCaptureTime);
-				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
-
-				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_IdleDrainRate");
-				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
-				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
-
-				Slider.Setter = (block, value) => { IdleDrainRate.Value = value; };
-				Slider.Getter = (block) => IdleDrainRate.Value;
-				Slider.Writer = (block, value) => value.Append($"{Math.Round(IdleDrainRate.Value * 100, 0)}%");
-				Slider.Title = MyStringId.GetOrCompute("Idle Drain Rate");
-				//Slider.Tooltip = MyStringId.GetOrCompute("How quickly the ");
-				Slider.SetLimits(0, 5);
-				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
-
-				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_ContestedDrainRate");
-				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && !EncampmentMode.Value; };
-				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
-
-				Slider.Setter = (block, value) => { ContestedDrainRate.Value = value; };
-				Slider.Getter = (block) => ContestedDrainRate.Value;
-				Slider.Writer = (block, value) => value.Append($"{Math.Round(ContestedDrainRate.Value * 100, 0)}%");
-				Slider.Title = MyStringId.GetOrCompute("Contested Drain Rate");
-				//Slider.Tooltip = MyStringId.GetOrCompute("The minimum blocks considered an activation grid");
-				Slider.SetLimits(0, 5);
-				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
-
-				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_PointsRemovedOnDeath");
-				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
-				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
-
-				Slider.Setter = (block, value) => { PointsRemovedOnDeath.Value = (int)value; };
-				Slider.Getter = (block) => PointsRemovedOnDeath.Value;
-				Slider.Writer = (block, value) => value.Append($"{PointsRemovedOnDeath.Value}");
-				Slider.Title = MyStringId.GetOrCompute("Points Removed On Death");
-				Slider.SetLimits(0, 1000);
-				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
-
 				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_ActivateOnCharacter");
-				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && !EncampmentMode.Value; };
+				Checkbox.Enabled = (block) => {return block.EntityId == ModBlock.EntityId && !EncampmentMode.Value; };
 				Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
 
 				Checkbox.Setter = (block, value) => {
@@ -850,58 +905,64 @@ namespace KingOfTheHill
 				Checkbox.Tooltip = MyStringId.GetOrCompute("Will count a copiloted grid as a single person");
 				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
 
-				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_PointsOnCap");
-				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
-				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
-
-				Slider.Setter = (block, value) => { CreditsPerPoint.Value = (int)value; };
-				Slider.Getter = (block) => CreditsPerPoint.Value;
-				Slider.Writer = (block, value) => {
-					if (PointsOnCap.Value == 0)
-					{
-						value.Append($"Standard");
-					}
-					else
-					{
-						value.Append($"{PointsOnCap.Value}");
-					}
-				};
-				Slider.Title = MyStringId.GetOrCompute("Points On Cap");
-				Slider.Tooltip = MyStringId.GetOrCompute("The number of points alotted on capture");
-				Slider.SetLimits(1, 10000);
-				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
-
-				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_AwardPointsToAllActiveFactions");
-				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && !EncampmentMode.Value; };
-				Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
-
-				Checkbox.Setter = (block, value) => { AwardPointsToAllActiveFactions.Value = value; UpdateControls(); };
-				Checkbox.Getter = (block) => AwardPointsToAllActiveFactions.Value;
-				Checkbox.Title = MyStringId.GetOrCompute("Award Points To all Active Factions");
-				Checkbox.Tooltip = MyStringId.GetOrCompute("All faction in zone get points on cap. No contesting zone. Zone caps at a set rate regardless of player count");
-				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
-
-				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_AwardPointsAsCredits");
+				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_LocationName");
 				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
 				Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
 
-				Checkbox.Setter = (block, value) => { AwardPointsAsCredits.Value = value; UpdateControls(); };
-				Checkbox.Getter = (block) => AwardPointsAsCredits.Value;
-				Checkbox.Title = MyStringId.GetOrCompute("Award Points As Credits");
-				Checkbox.Tooltip = MyStringId.GetOrCompute("Will deposit credit into the capping faction");
+				Checkbox.Setter = (block, value) => { IsLocationNamed.Value = value; };
+				Checkbox.Getter = (block) => IsLocationNamed.Value;
+				Checkbox.Title = MyStringId.GetOrCompute("Give Location & Name");
+				Checkbox.Tooltip = MyStringId.GetOrCompute("gives location and name of koth when point is scored");
 				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
 
-				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_CreditPerPoint");
-				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && AwardPointsAsCredits.Value; };
+				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_Radius");
+				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
 				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
 
-				Slider.Setter = (block, value) => { CreditsPerPoint.Value = (int)value; };
-				Slider.Getter = (block) => CreditsPerPoint.Value;
-				Slider.Writer = (block, value) => value.Append($"{CreditsPerPoint.Value}");
-				Slider.Title = MyStringId.GetOrCompute("Credits per point");
-				Slider.Tooltip = MyStringId.GetOrCompute("The number of credits per point that will be payed out to capping faction");
-				Slider.SetLimits(1, 10000000);
+				Slider.Setter = (block, value) => { Radius.Value = value; };
+				Slider.Getter = (block) => Radius.Value;
+				Slider.Writer = (block, value) => value.Append($"{Math.Round(Radius.Value, 0)}m");
+				Slider.Title = MyStringId.GetOrCompute("Radius");
+				Slider.Tooltip = MyStringId.GetOrCompute("Capture Zone Radius");
+				Slider.SetLimits(Constants.MinRadius, Constants.MaxRadius);
 				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
+				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_ProgressWhenComplete");
+				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Slider.Setter = (block, value) => { ProgressWhenComplete.Value = value; };
+				Slider.Getter = (block) => ProgressWhenComplete.Value;
+				Slider.Writer = (block, value) => value.Append($"{TimeSpan.FromMilliseconds((ProgressWhenComplete.Value / 60) * 1000).ToString("g").Split('.')[0]}");
+				Slider.Title = MyStringId.GetOrCompute("Capture Time");
+				Slider.Tooltip = MyStringId.GetOrCompute("The base capture time");
+				Slider.SetLimits(Constants.MinCaptureTime, Constants.MaxCaptureTime);
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
+				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_IdleDrainRate");
+				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Slider.Setter = (block, value) => { IdleDrainRate.Value = value; };
+				Slider.Getter = (block) => IdleDrainRate.Value;
+				Slider.Writer = (block, value) => value.Append($"{Math.Round(IdleDrainRate.Value * 100, 0)}%");
+				Slider.Title = MyStringId.GetOrCompute("Idle Drain Rate");
+				//Slider.Tooltip = MyStringId.GetOrCompute("How quickly the ");
+				Slider.SetLimits(0, 5);
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
+				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_ContestedDrainRate");
+				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && !EncampmentMode.Value; };
+				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Slider.Setter = (block, value) => { ContestedDrainRate.Value = value; };
+				Slider.Getter = (block) => ContestedDrainRate.Value;
+				Slider.Writer = (block, value) => value.Append($"{Math.Round(ContestedDrainRate.Value * 100, 0)}%");
+				Slider.Title = MyStringId.GetOrCompute("Contested Drain Rate");
+				//Slider.Tooltip = MyStringId.GetOrCompute("The minimum blocks considered an activation grid");
+				Slider.SetLimits(0, 5);
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
 
 				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_MinSmallGridBlockCount");
 				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && !ActivateOnCharacter.Value && !EncampmentMode.Value; };
@@ -915,6 +976,7 @@ namespace KingOfTheHill
 				Slider.SetLimits(Constants.MinBlockCount, Constants.MaxBlockCount);
 				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
 
+
 				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_MinLargeGridBlockCount");
 				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && !ActivateOnCharacter.Value; };
 				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
@@ -927,6 +989,34 @@ namespace KingOfTheHill
 				Slider.SetLimits(Constants.MinBlockCount, Constants.MaxBlockCount);
 				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
 
+
+				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_Opacity");
+				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Slider.Setter = (block, value) => { Opacity.Value = value; };
+				Slider.Getter = (block) => Opacity.Value;
+				Slider.Writer = (block, value) => value.Append($"{Opacity.Value} alpha");
+				Slider.Title = MyStringId.GetOrCompute("Opacity");
+				Slider.Tooltip = MyStringId.GetOrCompute("Sphere visiblility");
+				Slider.SetLimits(0, 255);
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
+
+				label = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlLabel, IMyBeacon>("zone_TimedActivationLabel");
+				label.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				label.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				label.Label = MyStringId.GetOrCompute("Timed Activation Settings");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(label);
+
+
+				separator = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSeparator, IMyBeacon>("zone_TimedActivationSeparator");
+				separator.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				separator.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(separator);
+
+
 				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_AutomaticActivation");
 				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
 				Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
@@ -936,6 +1026,7 @@ namespace KingOfTheHill
 				Checkbox.Title = MyStringId.GetOrCompute("Auto Activate");
 				Checkbox.Tooltip = MyStringId.GetOrCompute("Will allow activation durring a set time period");
 				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
+
 
 				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_ActivationDay");
 				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && AutomaticActivation.Value; };
@@ -949,6 +1040,7 @@ namespace KingOfTheHill
 				Slider.SetLimits(0, 7);
 				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
 
+
 				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_ActivationStartTime");
 				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && AutomaticActivation.Value; };
 				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
@@ -960,6 +1052,7 @@ namespace KingOfTheHill
 				//Slider.Tooltip = MyStringId.GetOrCompute("");
 				Slider.SetLimits(0, 1440);
 				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
 
 				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_ActivationEndTime");
 				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && AutomaticActivation.Value; };
@@ -973,17 +1066,317 @@ namespace KingOfTheHill
 				Slider.SetLimits(0, 1440);
 				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
 
-				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_Opacity");
+
+				label = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlLabel, IMyBeacon>("zone_KothPointsSettingsLabel");
+				label.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				label.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				label.Label = MyStringId.GetOrCompute("Koth Point Settings");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(label);
+
+				separator = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSeparator, IMyBeacon>("zone_KothPointsSeparator");
+				separator.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				separator.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(separator);
+
+				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_AwardPointsToAllActiveFactions");
+				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && !EncampmentMode.Value; };
+				Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Checkbox.Setter = (block, value) => { AwardPointsToAllActiveFactions.Value = value; UpdateControls(); };
+				Checkbox.Getter = (block) => AwardPointsToAllActiveFactions.Value;
+				Checkbox.Title = MyStringId.GetOrCompute("Award Points to all Active Factions");
+				Checkbox.Tooltip = MyStringId.GetOrCompute("All faction in zone get points on cap. No contesting zone. Zone caps at a set rate regardless of player count");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
+
+				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_AwardPointsAsCredits");
+				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Checkbox.Setter = (block, value) => { AwardPointsAsCredits.Value = value; UpdateControls(); };
+				Checkbox.Getter = (block) => AwardPointsAsCredits.Value;
+				Checkbox.Title = MyStringId.GetOrCompute("Award Points As Credits");
+				Checkbox.Tooltip = MyStringId.GetOrCompute("Will deposit credit into the capping faction");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
+
+				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_PointsOnCap");
 				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
 				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
 
-				Slider.Setter = (block, value) => { Opacity.Value = value; };
-				Slider.Getter = (block) => Opacity.Value;
-				Slider.Writer = (block, value) => value.Append($"{Opacity.Value} alpha");
-				Slider.Title = MyStringId.GetOrCompute("Opacity");
-				Slider.Tooltip = MyStringId.GetOrCompute("Sphere visiblility");
-				Slider.SetLimits(0, 255);
+				Slider.Setter = (block, value) => { PointsOnCap.Value = (int)value; };
+				Slider.Getter = (block) => PointsOnCap.Value;
+				Slider.Writer = (block, value) => {
+					if (PointsOnCap.Value == 0)
+					{
+						value.Append($"Standard");
+					}
+					else
+					{
+						value.Append($"{PointsOnCap.Value}");
+					}
+				};
+				Slider.Title = MyStringId.GetOrCompute("Points On Cap");
+				Slider.Tooltip = MyStringId.GetOrCompute("The number of points alotted on capture. Standard awards more points for more enemy players online. teams that are behind get a slight point boost.");
+				Slider.SetLimits(0, Constants.MaxPoints);
 				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
+
+				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_PointsRemovedOnDeath");
+				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Slider.Setter = (block, value) => { PointsRemovedOnDeath.Value = (int)value; };
+				Slider.Getter = (block) => PointsRemovedOnDeath.Value;
+				Slider.Writer = (block, value) => value.Append($"{PointsRemovedOnDeath.Value}");
+				Slider.Title = MyStringId.GetOrCompute("Points Removed On Death");
+				Slider.SetLimits(0, Constants.MaxPoints);
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
+
+				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_CreditPerPoint");
+				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && AwardPointsAsCredits.Value; };
+				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Slider.Setter = (block, value) => { CreditsPerPoint.Value = (int)value; };
+				Slider.Getter = (block) => CreditsPerPoint.Value;
+				Slider.Writer = (block, value) => value.Append($"{CreditsPerPoint.Value}");
+				Slider.Title = MyStringId.GetOrCompute("Credits per point");
+				Slider.Tooltip = MyStringId.GetOrCompute("The number of credits per point that will be payed out to capping faction");
+				Slider.SetLimits(Constants.MinCredit, Constants.MaxCredit);
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
+
+				label = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlLabel, IMyBeacon>("zone_PrizeLabel");
+				label.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				label.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+				label.Label = MyStringId.GetOrCompute("Koth Prize Settings");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(label);
+
+				separator = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSeparator, IMyBeacon>("zone_PrizeSeparator");
+				separator.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				separator.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(separator);
+
+
+				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_SpawnIntoPrizeBox");
+				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Checkbox.Setter = (block, value) => { SpawnIntoPrizeBox.Value = value; };
+				Checkbox.Getter = (block) => SpawnIntoPrizeBox.Value;
+				Checkbox.Title = MyStringId.GetOrCompute("Spawn Items Into PrizeBox");
+				Checkbox.Tooltip = MyStringId.GetOrCompute("Items will be dropped into the prize box on this grid.");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
+
+
+				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_UseComponentReward");
+				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Checkbox.Setter = (block, value) => {
+
+					UseComponentReward.Value = value;
+					UpdateControls();
+				};
+				Checkbox.Getter = (block) => UseComponentReward.Value;
+				Checkbox.Title = MyStringId.GetOrCompute("Component Reward");
+				Checkbox.Tooltip = MyStringId.GetOrCompute("Prize will be components");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
+
+				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_UseOreReward");
+				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Checkbox.Setter = (block, value) => {
+					UseOreReward.Value = value;
+					UpdateControls();
+				};
+
+				Checkbox.Getter = (block) => UseOreReward.Value;
+				Checkbox.Title = MyStringId.GetOrCompute("Ore Reward");
+				Checkbox.Tooltip = MyStringId.GetOrCompute("Prize will be ore");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
+
+				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_UseIngotReward");
+				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Checkbox.Setter = (block, value) => {
+					UseIngotReward.Value = value;
+					UpdateControls();
+				};
+				Checkbox.Getter = (block) => UseIngotReward.Value;
+				Checkbox.Title = MyStringId.GetOrCompute("Ingot Reward");
+				Checkbox.Tooltip = MyStringId.GetOrCompute("Prize will be Ingot");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
+
+
+				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_PointsForPrizes");
+				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Slider.Setter = (block, value) => { PointsForPrize.Value = (int)value; };
+				Slider.Getter = (block) => PointsForPrize.Value;
+				Slider.Writer = (block, value) => value.Append($"{PointsForPrize.Value} Points");
+				Slider.Title = MyStringId.GetOrCompute("Points Required for Prize");
+				Slider.Tooltip = MyStringId.GetOrCompute("Points");
+				Slider.SetLimits(Constants.MinPoints, Constants.MaxPoints);
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
+
+				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_PrizeAmountComponents");
+				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && UseComponentReward.Value; };
+				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+				
+				Slider.Setter = (block, value) => { PrizeAmountComponent.Value = (int)value;};
+				Slider.Getter = (block) => PrizeAmountComponent.Value;
+				Slider.Writer = (block, value) => value.Append($"{PrizeAmountComponent.Value}#");
+				Slider.Title = MyStringId.GetOrCompute("Prize Amount Components");
+				Slider.Tooltip = MyStringId.GetOrCompute("Number of Prizes");
+				Slider.SetLimits(Constants.MinAmount, Constants.MaxAmount);
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
+				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_PrizeAmountOre");
+				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && UseOreReward.Value; };
+				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Slider.Setter = (block, value) => { PrizeAmountOre.Value = (int)value;};
+				Slider.Getter = (block) => PrizeAmountOre.Value;
+				Slider.Writer = (block, value) => value.Append($"{PrizeAmountOre.Value}#");
+				Slider.Title = MyStringId.GetOrCompute("Prize Amount ore");
+				Slider.Tooltip = MyStringId.GetOrCompute("Number of Prizes");
+				Slider.SetLimits(Constants.MinAmount, Constants.MaxAmount);
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
+				Slider = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSlider, IMyBeacon>("Zone_PrizeAmountIngot");
+				Slider.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && UseIngotReward.Value; };
+				Slider.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Slider.Setter = (block, value) => { PrizeAmountIngot.Value = (int)value; };
+				Slider.Getter = (block) => PrizeAmountIngot.Value;
+				Slider.Writer = (block, value) => value.Append($"{PrizeAmountIngot.Value}#");
+				Slider.Title = MyStringId.GetOrCompute("Prize Amount Ingots");
+				Slider.Tooltip = MyStringId.GetOrCompute("Number of Prizes");
+				Slider.SetLimits(Constants.MinAmount, Constants.MaxAmount);
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Slider);
+
+				IMyTerminalControlListbox componentlist = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlListbox, IMyBeacon>("Zone_ComponentList");
+				componentlist.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && !AdvancedComponentSelection.Value && UseComponentReward.Value; };
+				componentlist.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				componentlist.Title = MyStringId.GetOrCompute("Select Vanilla Components");
+				componentlist.SupportsMultipleBlocks = false;
+				componentlist.ListContent = ComponentPrize;
+				componentlist.VisibleRowsCount = 6;
+				componentlist.ItemSelected = SelectedComponent;
+				componentlist.Multiselect = false;
+				MyAPIGateway.TerminalControls.AddControl<IMyBeacon>(componentlist);
+
+				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_AdvancedComponentOption");
+				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && UseComponentReward.Value; };
+				Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Checkbox.Setter = (block, value) => {
+					AdvancedComponentSelection.Value = value;
+					UpdateControls();
+				};
+				Checkbox.Getter = (block) => AdvancedComponentSelection.Value;
+				Checkbox.Title = MyStringId.GetOrCompute("Advanced Component Selection");
+				Checkbox.Tooltip = MyStringId.GetOrCompute("allows for manually adding modded Components");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
+
+				IMyTerminalControlListbox Orelist = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlListbox, IMyBeacon>("Zone_OreList");
+				Orelist.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && !AdvancedOreSelection.Value && UseOreReward.Value; };
+				Orelist.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Orelist.Title = MyStringId.GetOrCompute("Select Vanilla Ores");
+				Orelist.SupportsMultipleBlocks = false;
+				Orelist.ListContent = OrePrize;
+				Orelist.VisibleRowsCount = 6;
+				Orelist.ItemSelected = SelectedOre;
+				Orelist.Multiselect = false;
+				MyAPIGateway.TerminalControls.AddControl<IMyBeacon>(Orelist);
+
+				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_AdvancedOreOption");
+				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && UseOreReward.Value; };
+				Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Checkbox.Setter = (block, value) => {
+					AdvancedOreSelection.Value = value;
+					UpdateControls();
+				};
+				Checkbox.Getter = (block) => AdvancedOreSelection.Value;
+				Checkbox.Title = MyStringId.GetOrCompute("Advanced Ore Selection");
+				Checkbox.Tooltip = MyStringId.GetOrCompute("allows for manually adding modded Ores");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
+
+
+				var Ingotlist = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlListbox, IMyBeacon>("Zone_IngotList");
+				Ingotlist.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && !AdvancedIngotSelection.Value && UseIngotReward.Value; };
+				Ingotlist.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Ingotlist.Title = MyStringId.GetOrCompute("Select Vanilla Ingot");
+				Ingotlist.SupportsMultipleBlocks = false;
+				Ingotlist.ListContent = IngotPrize;
+				Ingotlist.VisibleRowsCount = 6;
+				Ingotlist.ItemSelected = SelectedIngot;
+				Ingotlist.Multiselect = false;
+				MyAPIGateway.TerminalControls.AddControl<IMyBeacon>(Ingotlist);
+
+				Checkbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlCheckbox, IMyBeacon>("Zone_AdvancedIngotOption");
+				Checkbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && UseIngotReward.Value; };
+				Checkbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				Checkbox.Setter = (block, value) => {
+					AdvancedIngotSelection.Value = value;
+					UpdateControls();
+				};
+				Checkbox.Getter = (block) => AdvancedIngotSelection.Value;
+				Checkbox.Title = MyStringId.GetOrCompute("Advanced Ingot Selection");
+				Checkbox.Tooltip = MyStringId.GetOrCompute("allows for manually adding modded Ingot");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(Checkbox);
+
+
+				label = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlLabel, IMyBeacon>("zone_AdvanceLabel");
+				label.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				label.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+				label.Label = MyStringId.GetOrCompute("Advanced Prize Settings");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(label);
+
+				separator = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlSeparator, IMyBeacon>("zone_PrizeSeparator");
+				separator.Enabled = (block) => { return block.EntityId == ModBlock.EntityId; };
+				separator.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(separator);
+
+				textbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlTextbox, IMyBeacon>("zone_PrizeComponentSubtypeId");
+				textbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && AdvancedComponentSelection.Value && UseComponentReward.Value; };
+				textbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				textbox.Setter = (block, value) => { PrizeComponentSubtypeId.Value = (value.ToString()); };
+				textbox.Getter = (block) => new StringBuilder(PrizeComponentSubtypeId.Value);
+				textbox.Title = MyStringId.GetOrCompute("Component subtypeId");
+				textbox.Tooltip = MyStringId.GetOrCompute("must use subtypeId");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(textbox);
+
+				textbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlTextbox, IMyBeacon>("zone_PrizeOreSubtypeId");
+				textbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && AdvancedOreSelection.Value && UseOreReward.Value; };
+				textbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				textbox.Setter = (block, value) => { PrizeOreSubtypeId.Value = (value.ToString()); };
+				textbox.Getter = (block) => new StringBuilder(PrizeOreSubtypeId.Value);
+				textbox.Title = MyStringId.GetOrCompute("Ore subtypeId");
+				textbox.Tooltip = MyStringId.GetOrCompute("must use subtypeId");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(textbox);
+
+				textbox = MyAPIGateway.TerminalControls.CreateControl<IMyTerminalControlTextbox, IMyBeacon>("zone_PrizeIngotSubtypeId");
+				textbox.Enabled = (block) => { return block.EntityId == ModBlock.EntityId && AdvancedIngotSelection.Value && UseIngotReward.Value; };
+				textbox.Visible = (block) => { return block.EntityId == ModBlock.EntityId; };
+
+				textbox.Setter = (block, value) => { PrizeIngotSubtypeId.Value = (value.ToString()); };
+				textbox.Getter = (block) => new StringBuilder(PrizeIngotSubtypeId.Value);
+				textbox.Title = MyStringId.GetOrCompute("Ingot subtypeId");
+				textbox.Tooltip = MyStringId.GetOrCompute("must use subtypeId");
+				MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyBeacon>(textbox);
 			}
 		}
 
@@ -997,5 +1390,176 @@ namespace KingOfTheHill
 				control.UpdateVisual();
 			}
 		}
+
+
+		private void ComponentPrize(IMyTerminalBlock block, List<MyTerminalControlListBoxItem> items, List<MyTerminalControlListBoxItem> selectedItems)
+		{
+			try
+			{
+				List<string> ComponentPrizeList = new List<string>();
+				ComponentPrizeList.Add("Construction");
+				ComponentPrizeList.Add("MetalGrid");
+				ComponentPrizeList.Add("InteriorPlate");
+				ComponentPrizeList.Add("SteelPlate");
+				ComponentPrizeList.Add("Girder");
+				ComponentPrizeList.Add("SmallTube");
+				ComponentPrizeList.Add("LargeTube");
+				ComponentPrizeList.Add("Motor");
+				ComponentPrizeList.Add("Display");
+				ComponentPrizeList.Add("BulletproofGlass");
+				ComponentPrizeList.Add("Superconductor");
+				ComponentPrizeList.Add("Computer");
+				ComponentPrizeList.Add("Reactor");
+				ComponentPrizeList.Add("Thrust");
+				ComponentPrizeList.Add("GravityGenerator");
+				ComponentPrizeList.Add("Medical");
+				ComponentPrizeList.Add("RadioCommunication");
+				ComponentPrizeList.Add("Detector");
+				ComponentPrizeList.Add("Explosives");
+				ComponentPrizeList.Add("SolarCell");
+				ComponentPrizeList.Add("PowerCell");
+				ComponentPrizeList.Add("Canvas");
+
+				MyTerminalControlListBoxItem dummy = new MyTerminalControlListBoxItem(MyStringId.GetOrCompute("-Select Component Below-"), MyStringId.GetOrCompute("-Select Component Below-"), "abc");
+				items.Add(dummy);
+
+				if (!string.IsNullOrEmpty(SelectedComponentString.Value))
+				{
+					var placeholder = new MyTerminalControlListBoxItem(MyStringId.GetOrCompute(SelectedComponentString.Value), MyStringId.GetOrCompute(SelectedComponentString.Value), SelectedComponentString.Value);
+					items.Add(placeholder);
+					selectedItems.Add(placeholder);
+				}
+				foreach (var name in ComponentPrizeList)
+				{
+					var toList = new MyTerminalControlListBoxItem(MyStringId.GetOrCompute(name), MyStringId.GetOrCompute(name), "abc");
+					items.Add(toList);
+				}
+
+
+			}
+			catch (Exception ex)
+			{
+				VRage.Utils.MyLog.Default.WriteLineAndConsole($"list error when setting up ComponentPrize {ex}");
+			}
+
+		}
+
+		private void SelectedComponent(IMyTerminalBlock block, List<MyTerminalControlListBoxItem> selectedItems)
+		{
+			try
+			{
+				SelectedComponentString.Value = selectedItems[0].Text.ToString();
+
+			}
+			catch (Exception ex)
+			{
+				MyLog.Default.WriteLineAndConsole($"list error when setting up SelectedComponent {ex}");
+			}
+		}
+
+		private void OrePrize(IMyTerminalBlock block, List<MyTerminalControlListBoxItem> items, List<MyTerminalControlListBoxItem> selectedItems)
+		{
+			try
+			{
+				List<string> OrePrizeList = new List<string>();
+				OrePrizeList.Add("Stone");
+				OrePrizeList.Add("Iron");
+				OrePrizeList.Add("Nickel");
+				OrePrizeList.Add("Cobalt");
+				OrePrizeList.Add("Magnesium");
+				OrePrizeList.Add("Silicon");
+				OrePrizeList.Add("Silver");
+				OrePrizeList.Add("Gold");
+				OrePrizeList.Add("Platinum");
+				OrePrizeList.Add("Uranium");
+
+				MyTerminalControlListBoxItem dummy = new MyTerminalControlListBoxItem(MyStringId.GetOrCompute("-Select Ore Below-"), MyStringId.GetOrCompute("-Select Ore Below-"), "abc");
+				items.Add(dummy);
+
+				if (!string.IsNullOrEmpty(SelectedOreString.Value))
+				{
+					MyTerminalControlListBoxItem placeholder = new MyTerminalControlListBoxItem(MyStringId.GetOrCompute(SelectedOreString.Value), MyStringId.GetOrCompute(SelectedOreString.Value), SelectedOreString.Value);
+					items.Add(placeholder);
+					selectedItems.Add(placeholder);
+				}
+
+				foreach (var name in OrePrizeList)
+				{
+					MyTerminalControlListBoxItem toList = new MyTerminalControlListBoxItem(MyStringId.GetOrCompute(name), MyStringId.GetOrCompute(name), "abc");
+					items.Add(toList);
+				}
+			}
+			catch (Exception ex)
+			{
+				MyLog.Default.WriteLineAndConsole($"list error when setting up OrePrize {ex}");
+			}
+
+		}
+
+		private void SelectedOre(IMyTerminalBlock block, List<MyTerminalControlListBoxItem> selectedItems)
+		{
+			try
+			{
+				SelectedOreString.Value = selectedItems[0].Text.ToString();
+
+			}
+			catch (Exception ex)
+			{
+				MyLog.Default.WriteLineAndConsole($"list error when setting up SelectedComponent {ex}");
+			}
+		}
+
+		private void IngotPrize(IMyTerminalBlock block, List<MyTerminalControlListBoxItem> items, List<MyTerminalControlListBoxItem> selectedItems)
+		{
+			try
+			{
+				List<string> IngotPrizeList = new List<string>();
+				IngotPrizeList.Add("Stone");
+				IngotPrizeList.Add("Iron");
+				IngotPrizeList.Add("Nickel");
+				IngotPrizeList.Add("Cobalt");
+				IngotPrizeList.Add("Magnesium");
+				IngotPrizeList.Add("Silicon");
+				IngotPrizeList.Add("Silver");
+				IngotPrizeList.Add("Gold");
+				IngotPrizeList.Add("Platinum");
+				IngotPrizeList.Add("Uranium");
+
+				var dummy = new MyTerminalControlListBoxItem(MyStringId.GetOrCompute("-Select Ingot Below-"), MyStringId.GetOrCompute("-Select Ingot Below-"), "abc");
+				items.Add(dummy);
+
+				if (!string.IsNullOrEmpty(SelectedIngotString.Value))
+				{
+					MyTerminalControlListBoxItem placeholder = new MyTerminalControlListBoxItem(MyStringId.GetOrCompute(SelectedIngotString.Value), MyStringId.GetOrCompute(SelectedIngotString.Value), SelectedIngotString.Value);
+					items.Add(placeholder);
+					selectedItems.Add(placeholder);
+				}
+
+				foreach (var name in IngotPrizeList)
+				{
+					MyTerminalControlListBoxItem toList = new MyTerminalControlListBoxItem(MyStringId.GetOrCompute(name), MyStringId.GetOrCompute(name), "abc");
+					items.Add(toList);
+				}
+			}
+			catch (Exception ex)
+			{
+				MyLog.Default.WriteLineAndConsole($"list error when setting up IngotPrize {ex}");
+			}
+
+		}
+
+		private void SelectedIngot(IMyTerminalBlock block, List<MyTerminalControlListBoxItem> selectedItems)
+		{
+			try
+			{
+				SelectedIngotString.Value = selectedItems[0].Text.ToString();
+
+			}
+			catch (Exception ex)
+			{
+				MyLog.Default.WriteLineAndConsole($"list error when setting up SelectedComponent {ex}");
+			}
+		}
+
 	}
 }
