@@ -153,16 +153,10 @@ namespace KingOfTheHill
 			if (!MyAPIGateway.Multiplayer.IsServer)
 				return;
 
-			Session session = new Session() {
-				PlanetScores = Planets
-			};
+			Planets.Clear();
+			Session session = new Session();
 
 			Descriptions.Session.Save(session);
-
-			foreach (ZoneBlock b in Zones)
-			{
-				b.Save();
-			}
 		}
 
 		protected override void UnloadData()
