@@ -43,7 +43,7 @@ namespace KingOfTheHill
 		private void EntityAdded(IMyEntity e)
 		{
 			IMyCubeGrid g = e as IMyCubeGrid;
-			if (g == null || !g.IsStatic)
+			if (g == null || !g.IsStatic || g.Physics == null)
 				return;
 
 			StaticGrids.Add(g);
@@ -52,7 +52,7 @@ namespace KingOfTheHill
 		private void EntityRemoved(IMyEntity e)
 		{
 			IMyCubeGrid g = e as IMyCubeGrid;
-			if (g == null || !g.IsStatic)
+			if (g == null || !g.IsStatic || g.Physics == null)
 				return;
 
 			if (StaticGrids.Contains(g))

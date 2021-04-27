@@ -184,11 +184,10 @@ namespace KingOfTheHill
 
 			Core.RegisterZone(this);
 		}
-
-		public override MyObjectBuilder_ComponentBase Serialize(bool copy = false)
+		public override bool IsSerialized()
 		{
 			Save();
-			return base.Serialize(copy);
+			return base.IsSerialized();
 		}
 
 		public override void Close()
@@ -267,8 +266,8 @@ namespace KingOfTheHill
 				IsInitialized = true;
 			}
 
-			if (!ModBlock.IsFunctional || !ModBlock.Enabled || !ModBlock.IsWorking)
-				return; // if the block is incomplete or turned off
+			if (ModBlock.CubeGrid.Physics == null || !ModBlock.IsFunctional || !ModBlock.Enabled || !ModBlock.IsWorking)
+				return; // if the block is incomplete, turned off or projected
 
 			if (AutomaticActivation.Value)
 			{
