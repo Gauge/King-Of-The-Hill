@@ -168,7 +168,6 @@
     <Compile Include="Data\Scripts\koth\ZoneBlock.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Data\BlockCategories.sbc" />
     <None Include="Data\Blueprints.sbc" />
     <None Include="Data\BlueprintsClasses.sbc" />
     <None Include="Data\Components.sbc" />

@@ -43,21 +43,46 @@ namespace KingOfTheHill
 		private void EntityAdded(IMyEntity e)
 		{
 			IMyCubeGrid g = e as IMyCubeGrid;
-			if (g == null || !g.IsStatic || g.Physics == null)
+			if (g == null || g.Physics == null)
 				return;
 
+			g.OnIsStaticChanged += StaticChanged;
+
+			if (!g.IsStatic)
+				return;
+			
 			StaticGrids.Add(g);
 		}
 
 		private void EntityRemoved(IMyEntity e)
 		{
 			IMyCubeGrid g = e as IMyCubeGrid;
-			if (g == null || !g.IsStatic || g.Physics == null)
+			if (g == null || g.Physics == null)
+				return;
+
+			g.OnIsStaticChanged -= StaticChanged;
+
+			if (!g.IsStatic)
 				return;
 
 			if (StaticGrids.Contains(g))
 			{
 				StaticGrids.Remove(g);
+			}
+		}
+
+		private void StaticChanged(IMyCubeGrid g, bool IsStatic) 
+		{
+			if (g.IsStatic)
+			{
+				StaticGrids.Add(g);
+			}
+			else
+			{
+				if (StaticGrids.Contains(g))
+				{
+					StaticGrids.Remove(g);
+				}
 			}
 		}
 
