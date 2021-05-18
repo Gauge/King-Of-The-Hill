@@ -150,6 +150,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Data\Scripts\koth\SENetworkAPI\NexusApi.cs" />
     <Compile Include="Data\Scripts\koth\Descriptions\PlanetDescription.cs" />
     <Compile Include="Data\Scripts\koth\SENetworkAPI\Client.cs" />
     <Compile Include="Data\Scripts\koth\SENetworkAPI\Command.cs" />

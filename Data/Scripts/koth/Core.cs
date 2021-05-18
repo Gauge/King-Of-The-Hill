@@ -8,6 +8,7 @@ using VRage.Game.ModAPI;
 using VRage.Utils;
 using KingOfTheHill.Descriptions;
 using SENetworkAPI;
+using NexusAPIns;
 using System;
 using VRage.ModAPI;
 using Sandbox.Game.Entities;
@@ -21,6 +22,13 @@ namespace KingOfTheHill
 		public const string Keyword = "/koth";
 		public const string DisplayName = "KotH";
 		public const ushort ComId = 42511;
+		public const ushort CliComId = 42611;
+
+		//NEXUS: init flags and nexus api instantiation, one is for messages second for scores
+		public bool nexusCliInit = false;
+		public bool nexusInit = false;
+		public NexusAPI Nexus;
+		public NexusAPI Nexus2;
 
 		//private static Dictionary<long, ScoreDescription> Scores = new Dictionary<long, ScoreDescription>(); // faction, score
 		private static List<ZoneBlock> Zones = new List<ZoneBlock>();
@@ -106,6 +114,12 @@ namespace KingOfTheHill
 				Network.RegisterChatCommand("force-load", (args) => Network.SendCommand("force-load"));
 
 				Network.RegisterNetworkCommand("score", ClientCallback_Score);
+
+                //NEXUS: client message handler, recieves and shows messages forwarded from the sector
+                if (!nexusCliInit) {
+                    MyAPIGateway.Multiplayer.RegisterMessageHandler(CliComId, HandleClientCrossServerComm);
+                    nexusCliInit = true;
+                }
 			}
 			else
 			{
@@ -119,6 +133,16 @@ namespace KingOfTheHill
 				Network.RegisterNetworkCommand("score", ServerCallback_Score);
 				Network.RegisterNetworkCommand("save", ServerCallback_Save);
 				Network.RegisterNetworkCommand("force_load", ServerCallback_ForceLoad);
+
+                if (MyAPIGateway.Multiplayer.IsServer && !nexusInit) {
+                    //NEXUS: registration of sector handlers and nexus instances for each
+                    Nexus2 = new NexusAPI(5431); // score message
+                    Nexus = new NexusAPI(5432); // text message
+                    MyAPIGateway.Multiplayer.RegisterMessageHandler(5431, HandleCrossServerScore);
+                    MyAPIGateway.Multiplayer.RegisterMessageHandler(5432, HandleCrossServerComm);
+
+                    nexusInit = true;
+                }
 			}
 
 			MyAPIGateway.Entities.OnEntityAdd += EntityAdded;
@@ -142,6 +166,56 @@ namespace KingOfTheHill
 			}
 		}
 
+        //NEXUS: recieves a score object, overrides the current score and saves it
+        private void HandleCrossServerScore(byte[] obj)
+        {
+            try {
+                if (obj == null)
+                    return;
+
+                Planets = MyAPIGateway.Utilities.SerializeFromBinary<List<PlanetDescription>>(obj);
+
+                SaveData();
+
+            } catch(Exception exc) {
+                MyLog.Default.WriteLineAndConsole($"##MOD: Chillout error, ERROR: {exc}");
+            }
+        }
+
+        //NEXUS: recieves a message from another sector and sends it to all connected clients
+        private void HandleCrossServerComm(byte[] obj)
+        {
+            try {
+                if (obj == null)
+                    return;
+
+                MyAPIGateway.Multiplayer.SendMessageToOthers(CliComId, obj, true);
+
+            } catch(Exception exc) {
+                MyLog.Default.WriteLineAndConsole($"##MOD: Chillout error, ERROR: {exc}");
+            }
+        }
+
+        //NEXUS: handles a message recieved from a server and shows it in the chat
+        private void HandleClientCrossServerComm(byte[] obj)
+        {
+            try {
+                if (obj == null)
+                    return;
+
+                string message = Encoding.ASCII.GetString(obj);
+
+                if (message == null)
+                    return;
+
+                MyLog.Default.WriteLineAndConsole($"##MOD: Client recieved msg: {message}");
+
+                MyAPIGateway.Utilities.ShowMessage(DisplayName, message);
+
+            } catch(Exception exc) {
+                MyLog.Default.WriteLineAndConsole($"##MOD: Chillout error, ERROR: {exc}");
+            }
+        }
 
 		public override void LoadData()
 		{
@@ -188,6 +262,15 @@ namespace KingOfTheHill
 		{
 			ZoneBlock.OnAwardPoints -= AwardPoints;
 			ZoneBlock.OnPlayerDied -= PlayerDied;
+
+            //NEXUS: unregister the handlers on unload
+            if (!MyAPIGateway.Session.IsServer) {
+                MyAPIGateway.Multiplayer.UnregisterMessageHandler(CliComId, HandleClientCrossServerComm);
+            }
+            if (nexusInit) {
+                MyAPIGateway.Multiplayer.UnregisterMessageHandler(5431, HandleCrossServerScore);
+                MyAPIGateway.Multiplayer.UnregisterMessageHandler(5432, HandleCrossServerComm);
+            }
 		}
 
 		private void AwardPoints(ZoneBlock zone, IMyFaction faction, int enemies, bool displayHeader)
@@ -383,6 +466,18 @@ namespace KingOfTheHill
 
 
 			SaveData();
+
+            //NEXUS: if nexus is initialized, broadcast the message to nexus (and all other sectors in that way)
+            //NEXUS: KotH should work normally if nexus is not initialized
+            if (nexusInit) {
+                //NEXUS: sends the message this sector displays in the chat to all the other sectors
+                byte[] nexMessage = Encoding.ASCII.GetBytes(message.ToString());
+                Nexus.SendMessageToAllServers(nexMessage);
+
+                //NEXUS: score is broadcasted to other sectors, this basically triggers the save not just on this sector but on all the others with the same score
+                var serializedScore = MyAPIGateway.Utilities.SerializeToBinary<List<PlanetDescription>>(Planets);
+                Nexus2.SendMessageToAllServers(serializedScore);
+            }
 
 			bytes = Encoding.ASCII.GetBytes(message.ToString());
 			MyAPIGateway.Multiplayer.SendMessageToServer(8008, bytes);
